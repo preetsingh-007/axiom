@@ -1,0 +1,47 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      includeAssets: ['icon.svg'],
+      manifest: {
+        name: 'Axiom',
+        short_name: 'Axiom',
+        description: 'Local-first knowledge OS for researchers',
+        theme_color: '#1d2230',
+        background_color: '#f7f6f2',
+        display: 'standalone',
+        orientation: 'any',
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        ],
+      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,svg,woff2,mjs,wasm}'],
+      },
+    }),
+  ],
+  worker: { format: 'es' },
+  build: {
+    target: 'es2022',
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('pdfjs-dist')) return 'pdfjs';
+          if (id.includes('katex')) return 'katex';
+          if (id.includes('@codemirror') || id.includes('@lezer') || id.includes('y-codemirror')) return 'codemirror';
+          if (id.includes('node_modules/yjs') || id.includes('lib0')) return 'yjs';
+          return undefined;
+        },
+      },
+    },
+  },
+  server: { port: 5173, host: true },
+});
