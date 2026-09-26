@@ -22,25 +22,70 @@ function safeName(s: string) {
   return s.replace(/[\\/:*?"<>|#^[\]]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled';
 }
 
-/** Human-readable Markdown mirror committed next to the CRDT logs. */
-export async function exportMarkdownMirror(vault: Vault): Promise<MarkdownFile[]> {
-  const out: MarkdownFile[] = [];
-  const used = new Set<string>();
-  for (const p of vault.listPages()) {
-    const state = await vault.store.getState(p.id);
-    if (!state) continue;
-    const doc = new Y.Doc();
-    Y.applyUpdate(doc, state);
-    const blocks = snapshotPage(doc);
-    doc.destroy();
-    if (!blocks.some((b) => b.text.trim() || b.type !== 'text')) continue;
-    const dir = p.kind === 'daily' ? 'daily' : p.kind === 'concept' ? 'concepts' : 'pages';
-    let path = `${dir}/${safeName(p.title)}.md`;
-    for (let i = 2; used.has(path.toLowerCase()); i++) path = `${dir}/${safeName(p.title)} (${i}).md`;
-    used.add(path.toLowerCase());
-    out.push({ path, content: pageToMarkdown(p.title, blocks, { source: (id) => vault.getSource(id) }) });
+interface MirrorEntry {
+  title: string;
+  kind: string;
+  /** null when the page has no content (skipped) */
+  content: string | null;
+}
+
+/**
+ * Human-readable Markdown mirror committed next to the CRDT logs. Incremental: only pages that
+ * changed since the last export (or were renamed) are re-rendered.
+ */
+export class MarkdownMirror {
+  private cache = new Map<string, MirrorEntry>();
+  private dirty = new Set<string>();
+  private off: () => void;
+
+  constructor(private vault: Vault) {
+    this.off = vault.store.onDocChanged.on(({ docId }) => this.dirty.add(docId));
   }
-  return out;
+
+  destroy() {
+    this.off();
+  }
+
+  async export(): Promise<MarkdownFile[]> {
+    const vault = this.vault;
+    const out: MarkdownFile[] = [];
+    const used = new Set<string>();
+    const live = new Set<string>();
+    for (const p of vault.listPages()) {
+      live.add(p.id);
+      let entry = this.cache.get(p.id);
+      if (!entry || this.dirty.has(p.id) || entry.title !== p.title || entry.kind !== p.kind) {
+        entry = { title: p.title, kind: p.kind, content: await renderPage(vault, p.id, p.title) };
+        this.cache.set(p.id, entry);
+        this.dirty.delete(p.id);
+      }
+      if (entry.content === null) continue;
+      const dir = p.kind === 'daily' ? 'daily' : p.kind === 'concept' ? 'concepts' : 'pages';
+      let path = `${dir}/${safeName(p.title)}.md`;
+      for (let i = 2; used.has(path.toLowerCase()); i++) path = `${dir}/${safeName(p.title)} (${i}).md`;
+      used.add(path.toLowerCase());
+      out.push({ path, content: entry.content });
+    }
+    for (const id of this.cache.keys()) if (!live.has(id)) this.cache.delete(id);
+    return out;
+  }
+}
+
+async function renderPage(vault: Vault, pageId: string, title: string): Promise<string | null> {
+  const state = await vault.store.getState(pageId);
+  if (!state) return null;
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, state);
+  const blocks = snapshotPage(doc);
+  doc.destroy();
+  if (!blocks.some((b) => b.text.trim() || b.type !== 'text')) return null;
+  return pageToMarkdown(title, blocks, { source: (id) => vault.getSource(id) });
+}
+
+/** One-shot full export (Settings → Export all). */
+export function exportMarkdownMirror(vault: Vault): Promise<MarkdownFile[]> {
+  const m = new MarkdownMirror(vault);
+  return m.export().finally(() => m.destroy());
 }
 
 /**
@@ -54,12 +99,16 @@ export class SyncController {
   relay: EncryptedTransport | null = null;
   private offs: (() => void)[] = [];
   private relayStatus: TransportStatus | 'off' = 'off';
+  private mirror: MarkdownMirror;
+  /** rebuilds are serialised: overlapping apply() calls must never leak a GitSync */
+  private rebuildChain: Promise<void> = Promise.resolve();
 
   constructor(
     private vault: Vault,
     private sync: SyncManager,
     private deviceName: string,
   ) {
+    this.mirror = new MarkdownMirror(vault);
     this.offs.push(
       sync.onStatus.on(({ transport, status }) => {
         if (transport === 'relay') {
@@ -98,7 +147,12 @@ export class SyncController {
     await this.sync.resync();
   }
 
-  private async rebuild() {
+  private rebuild(): Promise<void> {
+    this.rebuildChain = this.rebuildChain.then(() => this.doRebuild()).catch((e) => console.warn('[axiom] sync rebuild failed', e));
+    return this.rebuildChain;
+  }
+
+  private async doRebuild() {
     this.sync.remove('relay');
     this.relay = null;
     this.relayStatus = 'off';
@@ -123,7 +177,7 @@ export class SyncController {
         blobs: this.cfg.git!.syncFiles
           ? { list: () => vault.db.listBlobIds(), get: (id) => vault.db.getBlob(id), put: (id, b) => vault.db.putBlob(id, b) }
           : undefined,
-        exporters: () => exportMarkdownMirror(vault),
+        exporters: () => this.mirror.export(),
       });
       git.onStatus.on(() => this.onChange.emit());
       git.start({ lockName: `axiom-git-${vault.name}` });
@@ -134,6 +188,7 @@ export class SyncController {
 
   destroy() {
     this.offs.forEach((f) => f());
+    this.mirror.destroy();
     this.git?.destroy();
     this.sync.remove('relay');
   }

@@ -37,6 +37,9 @@ export class DocStore {
   readonly onUpdate = new Emitter<DocUpdateEvent>();
   /** fires (debounced per doc by consumers) whenever doc content changed, from any origin */
   readonly onDocChanged = new Emitter<{ docId: string; remote: boolean }>();
+  /** persistence failures (e.g. storage quota exceeded); updates are kept and retried */
+  readonly onError = new Emitter<Error>();
+  private retryDelay = 0;
 
   private loaded: LRU<string, Loaded>;
   private loading = new Map<string, Promise<Y.Doc>>();
@@ -220,10 +223,17 @@ export class DocStore {
       if (!list.length) this.inflight.delete(docId);
     };
     this.writeChain = this.writeChain.then(async () => {
+      let failed: Error | null = null;
       for (const [docId, updates] of batch) {
         const merged = updates.length === 1 ? updates[0] : Y.mergeUpdates(updates);
         try {
           await this.db.putUpdate(docId, merged);
+        } catch (err) {
+          // keep the data: put it back in front of anything newer and retry later
+          failed = err as Error;
+          const pend = this.pending.get(docId);
+          this.pending.set(docId, pend ? [merged, ...pend] : [merged]);
+          continue;
         } finally {
           settle(docId, updates);
         }
@@ -231,11 +241,17 @@ export class DocStore {
         this.appendCounts.set(docId, n);
         if (n >= COMPACT_THRESHOLD) {
           this.appendCounts.set(docId, 0);
-          await this.compact(docId);
+          await this.compact(docId).catch(() => {});
         }
       }
+      if (failed) {
+        this.retryDelay = Math.min(30_000, (this.retryDelay || 500) * 2);
+        this.onError.emit(failed);
+        if (!this.flushTimer) this.flushTimer = setTimeout(() => void this.flush(), this.retryDelay);
+      } else this.retryDelay = 0;
     }).catch((err) => {
-      console.error('[axiom] persistence failed', err);
+      // never leave the chain rejected, or every later flush would be skipped
+      this.onError.emit(err as Error);
     });
     return this.writeChain;
   }

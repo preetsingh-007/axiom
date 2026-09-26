@@ -135,9 +135,8 @@ const SourceCard = memo(function SourceCard({ s, vs }: { s: SourceMeta; vs?: Vie
       icon: <Trash2 size={15} />,
       danger: true,
       run: () => {
-        const snapshot = vault.getSource(s.id);
-        vault.removeSource(s.id);
-        toast({ message: `Removed “${s.title}”`, action: snapshot ? { label: 'Undo', run: () => vault.putSource(snapshot) } : undefined });
+        const snapshot = vault.removeSource(s.id);
+        toast({ message: `Removed “${s.title}”`, action: { label: 'Undo', run: () => vault.restoreSource(snapshot) } });
       },
     },
   ];

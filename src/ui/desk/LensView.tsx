@@ -126,7 +126,9 @@ const LensGroup = memo(function LensGroup({ pageId, blockIds }: { pageId: string
   const { vault } = useServices();
   const navigate = useUI((s) => s.navigate);
   const doc = usePageDoc(pageId);
-  const api = useMemo(() => (doc ? new PageEditorApi(pageId, doc) : null), [doc, pageId]);
+  const idsKey = blockIds.join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const api = useMemo(() => (doc ? new PageEditorApi(pageId, doc, false, blockIds) : null), [doc, pageId, idsKey]);
   const title = vault.getPage(pageId)?.title ?? 'Untitled';
   return (
     <section className="lens-group">

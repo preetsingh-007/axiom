@@ -19,7 +19,7 @@ export function Transclusion({ title, pageId: givenPageId, blockId }: { title?: 
   const meta = pageId ? (vault.pages.get(pageId)?.toJSON() as PageMeta | undefined) : undefined;
   const doc = usePageDoc(pageId);
   const ids = useBlockIds(doc);
-  const api = useMemo(() => (doc && pageId ? new PageEditorApi(pageId, doc) : null), [doc, pageId]);
+  const api = useMemo(() => (doc && pageId ? new PageEditorApi(pageId, doc, false, blockId ? [blockId] : null) : null), [doc, pageId, blockId]);
 
   if (!pageId) {
     return (

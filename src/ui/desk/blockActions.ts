@@ -1,4 +1,3 @@
-import * as Y from 'yjs';
 import {
   blockIds,
   blockPlainText,
@@ -24,8 +23,9 @@ export function isTextual(t: BlockType) {
   return TEXTUAL.includes(t);
 }
 
-function neighbour(doc: Y.Doc, id: string, dir: -1 | 1, textualOnly = true): string | null {
-  const ids = blockIds(doc);
+function neighbour(api: PageEditorApi, id: string, dir: -1 | 1, textualOnly = true): string | null {
+  const doc = api.doc;
+  const ids = api.visibleIds ?? blockIds(doc);
   let i = ids.indexOf(id) + dir;
   while (i >= 0 && i < ids.length) {
     const b = getBlock(doc, ids[i]);
@@ -66,13 +66,14 @@ export function blockActions(api: PageEditorApi, id: string) {
         setBlockText(block, before);
       }, LOCAL_ORIGIN);
       const newId = insertBlockAfter(doc, id, { type: 'text', text: after });
-      api.focus(newId, 'start');
+      if (api.canFocus(newId)) api.focus(newId, 'start');
+      else useUI.getState().toast({ message: 'New block added to the page (not shown in this view)', timeout: 2500 });
       return true;
     },
 
     /** Backspace at offset 0: delete an empty block or merge into the previous one. */
     backspaceAtStart(isEmpty: boolean) {
-      const prev = neighbour(doc, id, -1, false);
+      const prev = neighbour(api, id, -1, false);
       const block = getBlock(doc, id);
       if (!block) return;
       if (!prev) {
@@ -100,7 +101,7 @@ export function blockActions(api: PageEditorApi, id: string) {
     },
 
     arrowOut(dir: 'up' | 'down') {
-      const target = neighbour(doc, id, dir === 'up' ? -1 : 1);
+      const target = neighbour(api, id, dir === 'up' ? -1 : 1);
       if (target) api.focus(target, dir === 'up' ? 'end' : 'start');
     },
 
@@ -134,7 +135,7 @@ export function blockActions(api: PageEditorApi, id: string) {
     },
 
     remove() {
-      const prev = neighbour(doc, id, -1);
+      const prev = neighbour(api, id, -1);
       const um = undoManagerFor(doc);
       um.stopCapturing();
       // delete + (re)seed an empty block form one undo step

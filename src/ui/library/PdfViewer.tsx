@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { getPdf, cropPage } from './pdfCache';
+import { acquirePdf, cropPage } from './pdfCache';
 import { loadPdfjs, getPageTextItems, type PDFDocumentProxy, type PDFPageProxy } from '../../core/ingest/pdf';
 import type { Highlight, SourceMeta, SourceLocator } from '../../core/schema';
 import { useServices } from '../app/services';
-import { useYDeep } from '../hooks/useY';
+import { useYShallow } from '../hooks/useY';
 import { LassoOverlay } from './LassoOverlay';
 import { analyseSelection, type Extraction } from './extraction';
 import type { ReaderTool } from './ReaderPane';
@@ -42,7 +42,8 @@ export function PdfViewer({ source, zoom, tool, jump, onExtract, onSelection, on
 
   useEffect(() => {
     let alive = true;
-    getPdf(source.id)
+    const handle = acquirePdf(source.id);
+    handle.pdf
       .then(async (d) => {
         const p1 = await d.getPage(1);
         const vp = p1.getViewport({ scale: 1 });
@@ -53,6 +54,7 @@ export function PdfViewer({ source, zoom, tool, jump, onExtract, onSelection, on
       .catch((e) => alive && setError(String(e?.message ?? e)));
     return () => {
       alive = false;
+      handle.release();
     };
   }, [source.id]);
 
@@ -148,14 +150,16 @@ export function PdfViewer({ source, zoom, tool, jump, onExtract, onSelection, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToPage?.nonce]);
 
-  // keep zoom anchored on the current page
+  // keep zoom anchored on the current page (offsets include fixed gaps that don't scale)
+  const posRef = useRef<{ n: number; intra: number }>({ n: 1, intra: 0 });
   const prevZoom = useRef(zoom);
   useLayoutEffect(() => {
     const el = scroll.current;
     if (!el || prevZoom.current === zoom) return;
-    const ratio = zoom / prevZoom.current;
-    el.scrollTop = el.scrollTop * ratio;
     prevZoom.current = zoom;
+    const { n, intra } = posRef.current;
+    if (offsets.current[n] !== undefined) el.scrollTop = offsets.current[n] + intra * cssHeightFor(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   // persist view state (throttled)
@@ -166,6 +170,7 @@ export function PdfViewer({ source, zoom, tool, jump, onExtract, onSelection, on
     if (!el || !pageCount) return;
     const top = el.scrollTop;
     const first = pageAt(top);
+    posRef.current = { n: first, intra: Math.max(0, Math.min(1, (top - offsets.current[first]) / cssHeightFor(first))) };
     const last = pageAt(top + el.clientHeight);
     setVisibleRange((r) => (r[0] === first && r[1] === last ? r : [first, last]));
     const cur = pageAt(top + el.clientHeight / 3);
@@ -229,10 +234,9 @@ export function PdfViewer({ source, zoom, tool, jump, onExtract, onSelection, on
   // text selection → floating menu
   useSelectionMenu(scroll, source.id, onSelection);
 
-  const highlightsArr = vault.highlightsFor(source.id);
-  useYDeep(highlightsArr);
+  useYShallow(vault.highlights);
   const byPage = new Map<number, Highlight[]>();
-  for (const h of highlightsArr.toArray()) {
+  for (const h of vault.highlightsFor(source.id)) {
     const p = h.loc.page ?? 0;
     const list = byPage.get(p);
     if (list) list.push(h);

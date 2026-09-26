@@ -55,3 +55,27 @@ describe('DocStore races', () => {
     expect(d.getText('t').toString()).toBe(text);
   });
 });
+
+describe('DocStore persistence failures', () => {
+  it('keeps updates when IndexedDB writes fail and retries them', async () => {
+    const s = await store();
+    const { updates, text } = chain(10);
+    const real = s.db.putUpdate.bind(s.db);
+    let failures = 2;
+    s.db.putUpdate = async (docId, data) => {
+      if (failures-- > 0) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      return real(docId, data);
+    };
+    const errors: Error[] = [];
+    s.onError.on((e) => errors.push(e));
+    for (const u of updates) await s.applyRemote('q', u, 'relay');
+    await s.flush();
+    expect(errors.length).toBeGreaterThan(0);
+    // retried automatically with backoff
+    await new Promise((r) => setTimeout(r, 2500));
+    await s.flush();
+    const fresh = new DocStore(s.db);
+    const doc = await fresh.open('q');
+    expect(doc.getText('t').toString()).toBe(text);
+  });
+});

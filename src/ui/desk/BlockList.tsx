@@ -77,8 +77,14 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
     return t.includes(BLOCK_MIME) || t.includes(EXTRACT_MIME) || t.includes('Files') || t.includes('text/plain');
   };
 
+  // the editor handles drops into its own text; never also insert a block
+  const intoEditor = (e: DragEvent) => e.nativeEvent.defaultPrevented || !!(e.target as HTMLElement).closest?.('.cm-editor');
+
   const onDragOver = (e: DragEvent) => {
-    if (readOnly || !accepts(e)) return;
+    if (readOnly || !accepts(e) || intoEditor(e)) {
+      if (dropAt !== null) setDropAt(null);
+      return;
+    }
     e.preventDefault();
     e.dataTransfer.dropEffect = e.dataTransfer.types.includes(BLOCK_MIME) && !e.altKey ? 'move' : 'copy';
     const idx = indexFromY(e.clientY);
@@ -86,7 +92,10 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
   };
 
   const onDrop = async (e: DragEvent) => {
-    if (readOnly || !accepts(e)) return;
+    if (readOnly || !accepts(e) || intoEditor(e)) {
+      setDropAt(null);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     const idx = indexFromY(e.clientY);

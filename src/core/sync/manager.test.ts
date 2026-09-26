@@ -115,3 +115,47 @@ describe('SyncManager', () => {
     await b.close();
   });
 });
+
+describe('SyncManager: offline deletions', () => {
+  it('propagates deletions made while disconnected (state vector unchanged)', async () => {
+    const a = await Vault.open(vaultName());
+    const b = await Vault.open(vaultName());
+    const sa = new SyncManager(a.store, { id: 'A', name: 'A' });
+    const sb = new SyncManager(b.store, { id: 'B', name: 'B' });
+    let [ta, tb] = memoryTransportPair('relay', 'relay');
+    sa.add(ta);
+    sb.add(tb);
+    const pid = a.createPage({ title: 'Del' });
+    const { doc: da } = await a.openPage(pid);
+    const keep = insertBlock(da, { type: 'text', text: 'keep' });
+    const gone = insertBlock(da, { type: 'text', text: 'delete me' });
+    await until(async () => {
+      const s = await b.store.getState(pid);
+      if (!s) return false;
+      const d = new Y.Doc();
+      Y.applyUpdate(d, s);
+      return blockIds(d).length === 2;
+    });
+    // disconnect, delete (pure deletion: no new structs), reconnect
+    sa.remove('relay');
+    sb.remove('relay');
+    const { deleteBlock } = await import('../blocks');
+    deleteBlock(da, gone);
+    blockText(getBlock(da, keep)!)!.delete(0, 1); // "eep"
+    await a.store.flush();
+    [ta, tb] = memoryTransportPair('relay', 'relay');
+    sa.add(ta);
+    sb.add(tb);
+    await until(async () => {
+      const s = await b.store.getState(pid);
+      const d = new Y.Doc();
+      Y.applyUpdate(d, s!);
+      const ids = blockIds(d);
+      return ids.length === 1 && blockPlainText(getBlock(d, ids[0])!) === 'eep';
+    });
+    sa.destroy();
+    sb.destroy();
+    await a.close();
+    await b.close();
+  });
+});

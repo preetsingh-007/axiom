@@ -7,10 +7,30 @@ import { LRU } from '../../core/util/lru';
  * every slide block goes through here so a textbook is parsed once per session.
  */
 
-const docs = new LRU<string, Promise<PDFDocumentProxy>>(4, (_k, p) => {
+/** open viewers / renders per source: a referenced document is never evicted */
+const refs = new Map<string, number>();
+
+const docs = new LRU<string, Promise<PDFDocumentProxy>>(4, (k, p) => {
+  if ((refs.get(k) ?? 0) > 0) return false;
   void p.then((d) => closePdf(d)).catch(() => {});
   return true;
 });
+
+/** Pins a document while in use; call the returned release() when done. */
+export function acquirePdf(sourceId: string): { pdf: Promise<PDFDocumentProxy>; release: () => void } {
+  refs.set(sourceId, (refs.get(sourceId) ?? 0) + 1);
+  let released = false;
+  return {
+    pdf: getPdf(sourceId),
+    release: () => {
+      if (released) return;
+      released = true;
+      const n = (refs.get(sourceId) ?? 1) - 1;
+      if (n <= 0) refs.delete(sourceId);
+      else refs.set(sourceId, n);
+    },
+  };
+}
 
 export function getPdf(sourceId: string): Promise<PDFDocumentProxy> {
   let p = docs.get(sourceId);
@@ -46,8 +66,9 @@ export function renderSourcePage(sourceId: string, page: number, width: number):
   let p = rendered.get(key);
   if (!p) {
     p = (async () => {
+      const handle = acquirePdf(sourceId);
       try {
-        const pdf = await getPdf(sourceId);
+        const pdf = await handle.pdf;
         const pg = await pdf.getPage(page);
         const base = pg.getViewport({ scale: 1 });
         const vp = pg.getViewport({ scale: width / base.width });
@@ -63,16 +84,27 @@ export function renderSourcePage(sourceId: string, page: number, width: number):
       } catch (e) {
         console.warn('[axiom] page render failed', e);
         return null;
+      } finally {
+        handle.release();
       }
     })();
     rendered.set(key, p);
+    p.then((r) => r === null && rendered.delete(key));
   }
   return p;
 }
 
 /** Crops a region (normalised 0..1 page rect) of a page to a PNG blob at high resolution. */
 export async function cropPage(sourceId: string, page: number, rect: [number, number, number, number], targetWidth = 1600): Promise<{ blob: Blob; w: number; h: number } | null> {
-  const pdf = await getPdf(sourceId);
+  const handle = acquirePdf(sourceId);
+  try {
+    return await cropPageInner(await handle.pdf, page, rect, targetWidth);
+  } finally {
+    handle.release();
+  }
+}
+
+async function cropPageInner(pdf: PDFDocumentProxy, page: number, rect: [number, number, number, number], targetWidth: number): Promise<{ blob: Blob; w: number; h: number } | null> {
   const pg = await pdf.getPage(page);
   const base = pg.getViewport({ scale: 1 });
   const regionW = rect[2] * base.width;

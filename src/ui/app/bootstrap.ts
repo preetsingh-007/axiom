@@ -12,6 +12,7 @@ import { seedWelcome } from './welcome';
 import type { Services } from './services';
 import { setServicesRef } from './servicesRef';
 import { startMaintenance } from './maintenance';
+import { useUI } from './store';
 import { parseSyncCode, applyJoinInfo, loadSyncConfig, saveSyncConfig } from '../../core/sync/config';
 import * as blocksModule from '../../core/blocks';
 
@@ -74,6 +75,8 @@ export async function bootstrap(): Promise<AppServices> {
 
   // "#join=AXJ1…" links configure sync on a new device in one step
   const joinMatch = /[#&]join=([^&]+)/.exec(location.hash);
+  const existingSync = await loadSyncConfig(vault);
+  const joining = !!joinMatch || !!existingSync.secret || !!existingSync.git?.enabled;
   if (joinMatch) {
     const info = parseSyncCode(decodeURIComponent(joinMatch[1]));
     history.replaceState(null, '', location.pathname + location.search + '#/stream');
@@ -82,7 +85,7 @@ export async function bootstrap(): Promise<AppServices> {
     }
   }
 
-  await seedWelcome(vault);
+  await seedWelcome(vault, { joining });
   await syncController.init().catch((e) => console.warn('[axiom] sync init failed', e));
 
   // Index in the background; the UI renders immediately and refines as the index fills.
@@ -103,6 +106,18 @@ export async function bootstrap(): Promise<AppServices> {
   });
 
   startMaintenance(services);
+
+  let lastStorageWarning = 0;
+  vault.store.onError.on((e) => {
+    if (Date.now() - lastStorageWarning < 60_000) return;
+    lastStorageWarning = Date.now();
+    const quota = /quota/i.test(e.name + e.message);
+    useUI.getState().toast({
+      message: quota ? 'Browser storage is full — changes are kept in memory and retried. Free space or back up to Git.' : `Saving failed (${e.message}); retrying…`,
+      kind: 'error',
+      timeout: 8000,
+    });
+  });
 
   if (import.meta.env.DEV || params.has('debug')) {
     (window as unknown as { axiom: unknown }).axiom = Object.assign(services, { __blocks: blocksModule });

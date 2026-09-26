@@ -78,9 +78,20 @@ export class PageEditorApi {
     readonly pageId: string,
     readonly doc: Y.Doc,
     readonly readOnly = false,
+    /**
+     * For partial views (lens results, block transclusions): the only block ids shown. Block
+     * navigation stays within them, and focus is never handed to a block that won't render.
+     */
+    readonly visibleIds: string[] | null = null,
   ) {}
 
+  /** Whether focusing this block will actually open an editor in this view. */
+  canFocus(blockId: string): boolean {
+    return !this.visibleIds || this.visibleIds.includes(blockId) || this.listeners.has(blockId);
+  }
+
   focus(blockId: string, at: FocusAt = 'end') {
+    if (!this.canFocus(blockId)) return;
     startTypeahead();
     this.pending.set(blockId, at);
     this.listeners.get(blockId)?.();

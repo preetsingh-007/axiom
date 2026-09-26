@@ -41,8 +41,7 @@ export function ReaderPane() {
   const highlight = (color: string) => {
     if (!selection || !source) return;
     const h: Highlight = { id: uid(8), sourceId: source.id, loc: selection.loc, rects: selection.rects, color, text: selection.text, createdAt: Date.now() };
-    const arr = vault.highlightsFor(source.id);
-    vault.transact(() => arr.push([h]));
+    vault.addHighlight(h);
     window.getSelection()?.removeAllRanges();
     setSelection(null);
   };
@@ -68,9 +67,13 @@ export function ReaderPane() {
 
   const seminar = async () => {
     if (!source) return;
-    const id = await createSeminarNotebook(source);
-    navigate({ name: 'page', pageId: id });
-    toast({ message: 'Seminar notebook ready — whiteboard space under every slide', kind: 'success' });
+    try {
+      const id = await createSeminarNotebook(source);
+      navigate({ name: 'page', pageId: id });
+      toast({ message: 'Seminar notebook ready — whiteboard space under every slide', kind: 'success' });
+    } catch (e) {
+      toast({ message: `Couldn't build the notebook: ${(e as Error).message ?? e}`, kind: 'error' });
+    }
   };
 
   const tocItems = useMemo(() => source?.toc ?? [], [source?.toc]);

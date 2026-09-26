@@ -52,8 +52,13 @@ export class Vault {
   get viewStates(): Y.Map<ViewState> {
     return this.index.getMap<ViewState>('viewStates');
   }
-  get highlights(): Y.Map<Y.Array<Highlight>> {
-    return this.index.getMap<Y.Array<Highlight>>('highlights');
+  /**
+   * Highlights, flat: key `${sourceId}|${highlightId}`. (A nested Y.Array per source would be
+   * created independently on two offline devices opening the same PDF, and Yjs would keep only
+   * one of them.)
+   */
+  get highlights(): Y.Map<Highlight> {
+    return this.index.getMap<Highlight>('hl');
   }
   get cards(): Y.Map<CardRecord> {
     return this.index.getMap<CardRecord>('cards');
@@ -219,11 +224,24 @@ export class Vault {
     });
   }
 
-  removeSource(id: string) {
+  /** Removes a source; returns what is needed to undo it (metadata, reading state, highlights). */
+  removeSource(id: string): { meta?: SourceMeta; view?: ViewState; highlights: Highlight[] } {
+    const snapshot = { meta: this.getSource(id), view: this.viewStates.get(id), highlights: this.highlightsFor(id) };
     this.transact(() => {
       this.sources.delete(id);
       this.viewStates.delete(id);
-      this.highlights.delete(id);
+      for (const h of snapshot.highlights) this.highlights.delete(`${id}|${h.id}`);
+    });
+    return snapshot;
+  }
+
+  restoreSource(snapshot: { meta?: SourceMeta; view?: ViewState; highlights: Highlight[] }) {
+    if (!snapshot.meta) return;
+    const id = snapshot.meta.id;
+    this.putSource(snapshot.meta);
+    this.transact(() => {
+      if (snapshot.view) this.viewStates.set(id, snapshot.view);
+      for (const h of snapshot.highlights) this.highlights.set(`${id}|${h.id}`, h);
     });
   }
 
@@ -235,13 +253,20 @@ export class Vault {
     this.transact(() => this.viewStates.set(sourceId, vs));
   }
 
-  highlightsFor(sourceId: string): Y.Array<Highlight> {
-    let arr = this.highlights.get(sourceId);
-    if (!arr) {
-      arr = new Y.Array<Highlight>();
-      this.transact(() => this.highlights.set(sourceId, arr!));
-    }
-    return arr;
+  /** Highlights of one source (read-only; never writes to the CRDT). */
+  highlightsFor(sourceId: string): Highlight[] {
+    const out: Highlight[] = [];
+    const prefix = sourceId + '|';
+    for (const [k, h] of this.highlights) if (k.startsWith(prefix)) out.push(h);
+    return out.sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  addHighlight(h: Highlight) {
+    this.transact(() => this.highlights.set(`${h.sourceId}|${h.id}`, h));
+  }
+
+  removeHighlight(sourceId: string, id: string) {
+    this.transact(() => this.highlights.delete(`${sourceId}|${id}`));
   }
 
   // ---------- blobs ----------

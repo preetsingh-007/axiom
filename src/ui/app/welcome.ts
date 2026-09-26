@@ -3,9 +3,13 @@ import { insertBlocks, type NewBlock } from '../../core/blocks';
 
 const WELCOME_ID = 'p-welcome';
 
-/** Seeds a short guided tour the first time a vault is opened. */
-export async function seedWelcome(vault: Vault) {
-  if (vault.settings.get('seeded') || vault.pages.size > 0) return;
+/**
+ * Seeds a short guided tour the first time a vault is opened on a device that is NOT joining an
+ * existing vault. Block ids are deterministic, so if two fresh devices are linked later their
+ * welcome pages merge into one instead of duplicating content.
+ */
+export async function seedWelcome(vault: Vault, opts: { joining: boolean }) {
+  if (opts.joining || vault.settings.get('seeded') || vault.pages.size > 0) return;
   vault.transact(() => vault.settings.set('seeded', Date.now()));
   vault.createPage({ id: WELCOME_ID, title: 'Welcome to Axiom', kind: 'note' });
   const { doc, release } = await vault.openPage(WELCOME_ID);
@@ -19,6 +23,9 @@ export async function seedWelcome(vault: Vault) {
     { type: 'text', text: '## Remember what matters\nThe **Bellman equation** expresses a value function recursively in terms of successor values. #flashcard' },
     { type: 'text', text: 'Tag any block with `#flashcard` and it joins your review queue with auto-generated cloze cards, scheduled by FSRS.' },
   ];
-  insertBlocks(doc, blocks);
+  insertBlocks(
+    doc,
+    blocks.map((b, i) => ({ ...b, id: `welcome-${i + 1}` })),
+  );
   release();
 }
