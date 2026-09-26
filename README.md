@@ -85,6 +85,16 @@ npm run typecheck
 
 The e2e suite covers editing, linking, lasso extraction + Wormhole jumps, highlights, a 300-page textbook, seminar notebooks, EPUB/PPTX, two-finger accordion gestures (real CDP touch events), FSRS reviews, two-device encrypted sync through the relay, multi-tab sync, and performance budgets (2,000-block pages, 10k-block search, textbook flinging).
 
+## Known limitations
+
+- **Native ink APIs.** Axiom is a web app, so it uses Pointer Events (coalesced + predicted points, a desynchronized canvas) rather than PencilKit / Android Ink. Latency is very good on modern iPadOS/Android browsers, but not identical to a native app.
+- **Handwriting & math recognition need a model.** Shapes are recognised offline; handwriting → text and ink → LaTeX use whichever AI provider you configure (Gemini free tier, a local Ollama model, your own key, or the copy-paste bridge). Without one, ink stays ink.
+- **Subscription bridging is copy & paste.** Axiom opens your ChatGPT/Claude tab with the prompt on the clipboard; it never scrapes or automates those sites.
+- **Mendeley** has no open API without an OAuth app, so sync is via `.bib` export/import (Zotero has full two-way Web API sync).
+- **Page metadata edited on two devices before they first sync** (e.g. renaming the same concept page offline on both) resolves last-writer-wins for that page's metadata; page *content* always merges.
+- **arXiv lookups** may be blocked by CORS in some browsers; DOI metadata (Crossref) works everywhere.
+- **PPTX rendering** covers text, pictures, basic shapes, groups and notes; charts, SmartArt and EMF images are not drawn (export to PDF for full fidelity).
+
 ## License
 
 MIT

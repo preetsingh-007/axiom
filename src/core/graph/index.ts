@@ -8,12 +8,13 @@
  */
 
 import * as Y from 'yjs';
+import { stateDigest } from '../storage/digest';
 import type { Vault } from '../vault';
 import type { BlockType, EmbedRef, PageKind } from '../schema';
 import { INDEX_DOC_ID } from '../schema';
 import { blockAnchor, blockEmbed, blockIds, blockPlainText, blocksOf, blockType } from '../blocks';
 import { Emitter } from '../util/emitter';
-import { bytesHash, hash32, normalizeTitle } from '../util/ids';
+import { hash32, normalizeTitle } from '../util/ids';
 import { parseRefs, plainText, type EmbedTarget } from './parse';
 import { SearchIndex, type SearchPayload } from './search';
 import { scanTerms } from './tokenize';
@@ -314,10 +315,6 @@ function bucketOf(pageId: string): number {
   return parseInt(hash32(pageId), 36) % BUCKETS;
 }
 
-function versionOf(sv: Uint8Array): string {
-  return bytesHash(sv);
-}
-
 function uniqNorm(list: string[]): string[] {
   const out: string[] = [];
   for (const s of list) {
@@ -584,7 +581,7 @@ export class GraphIndex {
   private indexFromSource(pageId: string, state: Uint8Array | null, snap?: SnapPage) {
     const live = this.vault.store.getLoaded(pageId);
     if (live) {
-      const v = versionOf(Y.encodeStateVector(live));
+      const v = stateDigest(Y.encodeStateAsUpdate(live));
       if (snap && snap.v === v) this.applyPage(pageId, v, snap.b.map(fromSnap));
       else this.applyPage(pageId, v, extractPage(live));
       return;
@@ -593,7 +590,7 @@ export class GraphIndex {
       this.applyPage(pageId, 'empty', []);
       return;
     }
-    const v = versionOf(Y.encodeStateVectorFromUpdate(state));
+    const v = stateDigest(state);
     if (snap && snap.v === v) {
       this.applyPage(pageId, v, snap.b.map(fromSnap));
       return;
