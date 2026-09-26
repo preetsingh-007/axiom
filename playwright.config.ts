@@ -1,6 +1,9 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
-const executablePath = process.env.AXIOM_CHROMIUM ?? '/opt/pw-browsers/chromium';
+// Use a preinstalled Chromium when available (sandboxed environments); otherwise Playwright's own.
+const candidate = process.env.AXIOM_CHROMIUM ?? '/opt/pw-browsers/chromium';
+const executablePath = existsSync(candidate) ? candidate : undefined;
 
 export default defineConfig({
   testDir: 'tests/e2e',
