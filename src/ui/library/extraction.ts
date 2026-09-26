@@ -1,7 +1,7 @@
 import type { Anchor, SourceLocator } from '../../core/schema';
 import type { NewBlock } from '../../core/blocks';
 import type { TextItem } from '../../core/ingest/types';
-import { classifySelection, itemsToMarkdown, selectItemsInPolygon, unicodeMathToLatex } from '../../core/ingest/extract';
+import { classifySelection, estimateBodyFontSize, itemsToMarkdown, selectItemsInPolygon, unicodeMathToLatex } from '../../core/ingest/extract';
 import { blobToImageRef } from '../desk/blocks/imageImport';
 import { getServicesUnsafe } from '../app/servicesRef';
 import type { AppServices } from '../app/bootstrap';
@@ -42,7 +42,8 @@ export function analyseSelection(items: TextItem[], polygon: [number, number][],
   const inside = selectItemsInPolygon(items, polygon);
   const [x, y, w, h] = polygonBBox(polygon);
   const kind = classifySelection(inside, w * h) as ExtractKind;
-  const markdown = itemsToMarkdown(inside);
+  // body size of the whole page, so a selected heading still renders as a heading
+  const markdown = itemsToMarkdown(inside, { bodyFontSize: estimateBodyFontSize(items) });
   const plain = inside.map((i) => i.str).join(' ').replace(/\s+/g, ' ').trim();
   const latex = unicodeMathToLatex(plain);
   const rect: [number, number, number, number] = [clamp01(x / pageW), clamp01(y / pageH), Math.min(1, w / pageW), Math.min(1, h / pageH)];

@@ -12,7 +12,8 @@ import { seedWelcome } from './welcome';
 import type { Services } from './services';
 import { setServicesRef } from './servicesRef';
 import { startMaintenance } from './maintenance';
-import { parseSyncCode, applyJoinInfo } from '../../core/sync/config';
+import { parseSyncCode, applyJoinInfo, loadSyncConfig, saveSyncConfig } from '../../core/sync/config';
+import * as blocksModule from '../../core/blocks';
 
 export interface AppServices extends Services {
   graph: GraphIndex;
@@ -77,7 +78,6 @@ export async function bootstrap(): Promise<AppServices> {
     const info = parseSyncCode(decodeURIComponent(joinMatch[1]));
     history.replaceState(null, '', location.pathname + location.search + '#/stream');
     if (info) {
-      const { loadSyncConfig, saveSyncConfig } = await import('../../core/sync/config');
       await saveSyncConfig(vault, applyJoinInfo(await loadSyncConfig(vault), info));
     }
   }
@@ -105,8 +105,7 @@ export async function bootstrap(): Promise<AppServices> {
   startMaintenance(services);
 
   if (import.meta.env.DEV || params.has('debug')) {
-    const blocks = await import('../../core/blocks');
-    (window as unknown as { axiom: unknown }).axiom = Object.assign(services, { __blocks: blocks });
+    (window as unknown as { axiom: unknown }).axiom = Object.assign(services, { __blocks: blocksModule });
   }
   return services;
 }

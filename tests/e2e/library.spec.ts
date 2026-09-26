@@ -120,7 +120,9 @@ test.describe('Source Vault', () => {
     await openApp(page);
     await importAndOpen(page, 'book.epub');
     await expect(page.locator('.epub-chapter .epub-html').first()).toBeVisible({ timeout: 20_000 });
+    if (!(await page.locator('.toc').isVisible())) await page.getByRole('button', { name: 'Toggle table of contents' }).click();
     await expect(page.locator('.toc-link').first()).toBeVisible();
+    await page.locator('.toc-link').last().click();
   });
 
   test('PPTX opens as a vertical stream of slides', async ({ page }) => {

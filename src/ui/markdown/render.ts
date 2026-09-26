@@ -30,6 +30,24 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
+/**
+ * KaTeX output is large (HTML + MathML) and safe by construction (trust: false), so math is
+ * emitted as tiny placeholders, the markdown HTML is sanitised, and the KaTeX HTML is spliced
+ * in afterwards. This keeps DOMPurify's work proportional to the prose, not the math.
+ */
+let mathSlots: string[] | null = null;
+
+function mathSlot(html: string): string {
+  if (!mathSlots) return html;
+  mathSlots.push(html);
+  return `<span class="axm-m" data-i="${mathSlots.length - 1}"></span>`;
+}
+
+function spliceMath(html: string, slots: string[]): string {
+  if (!slots.length) return html;
+  return html.replace(/<span class="axm-m" data-i="(\d+)"><\/span>/g, (_m, i) => slots[Number(i)] ?? '');
+}
+
 const displayMath: TokenizerAndRendererExtension = {
   name: 'displayMath',
   level: 'block',
@@ -39,7 +57,7 @@ const displayMath: TokenizerAndRendererExtension = {
     if (m) return { type: 'displayMath', raw: m[0], text: m[1].trim() };
     return undefined;
   },
-  renderer: (t) => `<div class="md-math-display">${renderMath((t as Tokens.Generic).text, true)}</div>`,
+  renderer: (t) => `<div class="md-math-display">${mathSlot(renderMath((t as Tokens.Generic).text, true))}</div>`,
 };
 
 const inlineMath: TokenizerAndRendererExtension = {
@@ -59,7 +77,7 @@ const inlineMath: TokenizerAndRendererExtension = {
   },
   renderer: (t) => {
     const tok = t as Tokens.Generic;
-    return tok.display ? `<span class="md-math-block">${renderMath(tok.text, true)}</span>` : renderMath(tok.text, false);
+    return tok.display ? `<span class="md-math-block">${mathSlot(renderMath(tok.text, true))}</span>` : mathSlot(renderMath(tok.text, false));
   },
 };
 
@@ -170,7 +188,7 @@ function purify(html: string): string {
     purifyReady = true;
   }
   return DOMPurify.sanitize(html, {
-    ADD_ATTR: ['target', 'data-page', 'data-block', 'data-c', 'aria-hidden', 'encoding'],
+    ADD_ATTR: ['target', 'data-page', 'data-block', 'data-c', 'data-i', 'aria-hidden', 'encoding'],
     ADD_TAGS: ['semantics', 'annotation'],
   });
 }
@@ -181,8 +199,15 @@ const htmlCache = new LRU<string, string>(5000);
 export function renderMarkdown(text: string): string {
   const hit = htmlCache.get(text);
   if (hit !== undefined) return hit;
-  const raw = marked.parse(text, { async: false }) as string;
-  const html = purify(raw);
+  const slots: string[] = [];
+  mathSlots = slots;
+  let raw: string;
+  try {
+    raw = marked.parse(text, { async: false }) as string;
+  } finally {
+    mathSlots = null;
+  }
+  const html = spliceMath(purify(raw), slots);
   htmlCache.set(text, html);
   return html;
 }
@@ -192,7 +217,15 @@ export function renderInline(text: string): string {
   const key = '\u0000i' + text;
   const hit = htmlCache.get(key);
   if (hit !== undefined) return hit;
-  const html = purify(marked.parseInline(text, { async: false }) as string);
+  const slots: string[] = [];
+  mathSlots = slots;
+  let raw: string;
+  try {
+    raw = marked.parseInline(text, { async: false }) as string;
+  } finally {
+    mathSlots = null;
+  }
+  const html = spliceMath(purify(raw), slots);
   htmlCache.set(key, html);
   return html;
 }

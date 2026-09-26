@@ -98,7 +98,7 @@ export const ImageBlock = memo(function ImageBlock({ block }: { block: BlockMap 
   if (!image) return null;
   const ratio = image.w && image.h ? `${image.w} / ${image.h}` : undefined;
   return (
-    <figure className="blk-image">
+    <figure className="blk-image-fig">
       {url ? (
         <img src={url} alt={image.alt ?? caption ?? ''} style={{ aspectRatio: ratio, maxWidth: image.w ? Math.min(image.w, 1400) : undefined }} draggable={false} loading="lazy" decoding="async" />
       ) : (
@@ -130,7 +130,7 @@ export const SlideBlock = memo(function SlideBlock({ block }: { block: BlockMap 
   }, [anchor?.sourceId, anchor?.loc.page, image]);
   const src = stored ?? url;
   return (
-    <figure className="blk-slide">
+    <figure className="blk-slide-fig">
       {src ? <img src={src} alt={`Slide ${anchor?.loc.page ?? ''}`} draggable={false} /> : <div className="blk-image-ph" style={{ aspectRatio: ratio }} />}
     </figure>
   );

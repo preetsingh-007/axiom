@@ -60,12 +60,15 @@ export const TextBlock = memo(function TextBlock({ block, id, readOnly }: { bloc
   const api = usePageEditor();
   const env = useEditorEnv();
   const [editing, setEditing] = useState<FocusAt | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
   const htmlRef = useRef<HTMLDivElement>(null);
   const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
   const depth = useContext(TranscludeDepth);
 
   useFocusRequest(api, id, (at) => {
-    if (!readOnly) setEditing(at);
+    if (readOnly) return;
+    setEditing(at);
+    setFocusNonce((n) => n + 1);
   });
 
   const html = editing === null ? renderMarkdown(text) : '';
@@ -119,6 +122,7 @@ export const TextBlock = memo(function TextBlock({ block, id, readOnly }: { bloc
         mode="text"
         env={env}
         initialFocus={editing}
+        focusNonce={focusNonce}
         placeholder="Type, or press / for commands, [[ to link"
         onEnterSplit={(b, a) => actions.split(b, a)}
         onBackspaceAtStart={(empty) => actions.backspaceAtStart(empty)}

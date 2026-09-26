@@ -1,4 +1,4 @@
-import { Fragment, memo, useMemo, useRef, useState, type DragEvent } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import type * as Y from 'yjs';
 import { Plus } from 'lucide-react';
 import { blockIds, blockPlainText, blockType, getBlock, insertBlock, insertBlocks, moveBlock, type NewBlock, type BlockSnapshot } from '../../core/blocks';
@@ -12,6 +12,26 @@ import { blobToImageRef } from './blocks/imageImport';
 import { useUI } from '../app/store';
 import { LOCAL_ORIGIN } from '../../core/storage/docstore';
 import { importFilesToLibrary } from '../library/importer';
+import { EAGER_BLOCKS, blockHeights, scheduleMount, whenNearViewport } from './lazyMount';
+
+/** Placeholder with the block's last known size until it is near the viewport or idle time mounts it. */
+const LazyBlockRow = memo(function LazyBlockRow({ id, index, readOnly, showTime, doc }: { id: string; index: number; readOnly?: boolean; showTime?: boolean; doc: Y.Doc }) {
+  const [mounted, setMounted] = useState(false);
+  const ph = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (mounted || !ph.current) return;
+    const mount = () => setMounted(true);
+    const offIo = whenNearViewport(ph.current, mount);
+    const offIdle = scheduleMount(mount);
+    return () => {
+      offIo();
+      offIdle();
+    };
+  }, [mounted]);
+  if (mounted) return <BlockRow id={id} index={index} readOnly={readOnly} showTime={showTime} />;
+  const type = (getBlock(doc, id)?.get('type') as string) ?? 'text';
+  return <div ref={ph} className={`blk blk-ph blk-${type}`} data-block-id={id} data-block-index={index} data-block-type={type} style={{ height: blockHeights.get(id) ?? (type === 'ink' ? 300 : 34) }} />;
+});
 
 function snapshotToNew(b: BlockSnapshot): NewBlock {
   return { type: b.type, text: b.text, height: b.height, strokes: b.strokes, image: b.image, anchor: b.anchor, embed: b.embed, lang: b.lang };
@@ -130,7 +150,11 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
           {ids.map((id, i) => (
             <Fragment key={id}>
               {dropAt === i && <div className="blist-drop" />}
-              <BlockRow id={id} index={i} readOnly={readOnly} showTime={showTime} />
+              {i < EAGER_BLOCKS ? (
+                <BlockRow id={id} index={i} readOnly={readOnly} showTime={showTime} />
+              ) : (
+                <LazyBlockRow id={id} index={i} readOnly={readOnly} showTime={showTime} doc={doc} />
+              )}
               {!readOnly && (
                 <button
                   className="blk-gap-btn"

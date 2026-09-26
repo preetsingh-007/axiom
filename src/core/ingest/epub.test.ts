@@ -107,7 +107,7 @@ describe('parseEpub (EPUB2 / edge cases)', () => {
     zip.file('img/c.jpg', new Uint8Array([0xff, 0xd8, 0xff]));
     zip.file('a.html', '<html><body><p>Hello &amp; welcome&nbsp;here</p><img src="missing.png" alt="gone"/><iframe src="x"></iframe></body></html>');
     zip.file('b c.html', '<html><body><p id="x">Second</p></body></html>');
-    return new Blob([await zip.generateAsync({ type: 'uint8array' })]);
+    return new Blob([await zip.generateAsync({ type: 'arraybuffer' })]);
   }
 
   it('falls back to the NCX, filters non-author creators, handles encoded hrefs and missing images', async () => {
@@ -129,6 +129,6 @@ describe('parseEpub (EPUB2 / edge cases)', () => {
     await expect(parseEpub(new Blob(['not a zip']))).rejects.toThrow(/not a valid EPUB/);
     const zip = new JSZip();
     zip.file('hello.txt', 'x');
-    await expect(parseEpub(new Blob([await zip.generateAsync({ type: 'uint8array' })]))).rejects.toThrow(/package document/);
+    await expect(parseEpub(new Blob([await zip.generateAsync({ type: 'arraybuffer' })]))).rejects.toThrow(/package document/);
   });
 });

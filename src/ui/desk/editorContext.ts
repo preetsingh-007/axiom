@@ -4,6 +4,59 @@ import type * as Y from 'yjs';
 export type FocusAt = 'start' | 'end' | number;
 
 /**
+ * Keystrokes typed while focus hops between blocks (Enter → new block) arrive before the next
+ * editor exists. They are buffered here and replayed by the editor that mounts next.
+ */
+const typeahead = {
+  active: false,
+  text: '',
+  /** when capturing stopped without an editor claiming the text */
+  stashedAt: 0,
+  timer: undefined as ReturnType<typeof setTimeout> | undefined,
+};
+
+function onTypeaheadKey(e: KeyboardEvent) {
+  if (!typeahead.active || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+  if (e.key.length === 1) {
+    typeahead.text += e.key;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+function stopCapture() {
+  if (!typeahead.active) return;
+  typeahead.active = false;
+  clearTimeout(typeahead.timer);
+  window.removeEventListener('keydown', onTypeaheadKey, true);
+}
+
+export function startTypeahead() {
+  if (typeof window === 'undefined') return;
+  if (!typeahead.active) {
+    typeahead.text = '';
+    window.addEventListener('keydown', onTypeaheadKey, true);
+  }
+  typeahead.active = true;
+  clearTimeout(typeahead.timer);
+  // safety net: never capture keys indefinitely if no editor mounts; keep what was typed
+  typeahead.timer = setTimeout(() => {
+    stopCapture();
+    typeahead.stashedAt = Date.now();
+  }, 3000);
+}
+
+/** Stops buffering and returns what was typed during the hand-off. */
+export function takeTypeahead(): string {
+  const stashed = !typeahead.active && typeahead.text && Date.now() - typeahead.stashedAt < 5000;
+  if (!typeahead.active && !stashed) return '';
+  stopCapture();
+  const t = typeahead.text;
+  typeahead.text = '';
+  return t;
+}
+
+/**
  * Per-page editor API shared by all blocks of one page view: focus hand-off between blocks
  * (arrow keys, Enter splitting, Backspace merging) without re-rendering the whole list.
  */
@@ -20,6 +73,7 @@ export class PageEditorApi {
   ) {}
 
   focus(blockId: string, at: FocusAt = 'end') {
+    startTypeahead();
     this.pending.set(blockId, at);
     this.listeners.get(blockId)?.();
   }

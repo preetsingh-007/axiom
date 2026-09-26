@@ -1,0 +1,70 @@
+/* PPTX slide renderer. Slide content colours come from the deck itself; only the frame uses theme tokens. */
+.pptx-slide {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  outline: 1px solid var(--border);
+  contain: layout paint;
+  user-select: text;
+}
+
+.pptx-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  overflow: hidden;
+}
+
+.pptx-el {
+  position: absolute;
+  box-sizing: border-box;
+  transform-origin: 50% 50%;
+}
+
+.pptx-image {
+  object-fit: fill;
+  display: block;
+}
+
+.pptx-shape-svg {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pptx-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.pptx-va-top {
+  justify-content: flex-start;
+}
+
+.pptx-va-middle {
+  justify-content: center;
+}
+
+.pptx-va-bottom {
+  justify-content: flex-end;
+}
+
+.pptx-text-body {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-wrap: break-word;
+}
+
+.pptx-p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.pptx-bullet {
+  display: inline-block;
+  text-align: left;
+}

@@ -27,12 +27,25 @@ test.describe('Active Desk', () => {
     await expect(today.locator('.blk-rendered', { hasText: 'boldsecond block' })).toBeVisible();
   });
 
+  test('lists continue on Enter and fast typing after a split is never lost', async ({ page }) => {
+    await openApp(page);
+    await typeInNewBlock(page, '- alpha');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('beta');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter'); // empty item leaves the list into a new block
+    await page.keyboard.type('after the list', { delay: 0 });
+    await page.keyboard.press('Escape');
+    const today = page.locator('.day-today');
+    await expect(today.locator('.blk-rendered li')).toHaveText(['alpha', 'beta']);
+    await expect(today.locator('.blk-rendered', { hasText: 'after the list' })).toBeVisible();
+  });
+
   test('[[links]] create concept pages with backlinks', async ({ page }) => {
     await openApp(page);
-    await typeInNewBlock(page, 'Studying [[Policy Gradient');
-    // autocomplete offers to create the page; accept typed text
+    // closeBrackets auto-pairs "[[", typing "]]" steps over the pair
+    await typeInNewBlock(page, 'Studying [[Policy Gradient]] methods today');
     await page.keyboard.press('Escape');
-    await page.keyboard.type(']] methods today');
     await page.keyboard.press('Escape');
     await page.locator('.day-today .md-wikilink', { hasText: 'Policy Gradient' }).click();
     await expect(page.locator('.page-title')).toHaveText('Policy Gradient');

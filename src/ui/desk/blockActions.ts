@@ -45,7 +45,6 @@ export function blockActions(api: PageEditorApi, id: string) {
     split(before: string, after: string): boolean {
       const block = getBlock(doc, id);
       if (!block) return false;
-      const ytext = blockText(block)!;
       const lastLine = before.slice(before.lastIndexOf('\n') + 1);
       const lm = LIST_RE.exec(lastLine);
       if (lm) {
@@ -58,12 +57,8 @@ export function blockActions(api: PageEditorApi, id: string) {
           api.focus(newId, 'start');
           return true;
         }
-        const next = lm[3] ? `${Number(lm[3]) + 1}${lm[2].slice(-1)}` : lm[2];
-        const marker = `${lm[1]}${next}${lm[4]}${lm[5] ? '[ ] ' : ''}`;
-        const insertAt = before.length;
-        doc.transact(() => ytext.insert(insertAt, '\n' + marker), LOCAL_ORIGIN);
-        api.focus(id, insertAt + 1 + marker.length);
-        return true;
+        // non-empty items are continued inside the editor itself (BlockEditor)
+        return false;
       }
       doc.transact(() => {
         setBlockText(block, before);

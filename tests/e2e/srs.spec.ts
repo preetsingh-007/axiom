@@ -17,7 +17,7 @@ test('#flashcard blocks become cloze cards reviewed with FSRS', async ({ page })
   for (let i = 0; i < 6; i++) {
     if (!(await showAnswer.isVisible().catch(() => false))) break;
     await showAnswer.click();
-    await page.getByRole('button', { name: /^Good/ }).click();
+    await page.getByRole('button', { name: /Good/ }).click();
   }
   const reviewed = await withAxiom<number>(page, `return [...axiom.vault.cards.values()].filter(c => c.reps > 0).length`);
   expect(reviewed).toBeGreaterThan(0);

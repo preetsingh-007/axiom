@@ -20,6 +20,8 @@ export type Theme = 'light' | 'dark' | 'system';
 
 interface UIState {
   route: Route;
+  /** last writing surface, restored when a source is opened from the Library */
+  lastDeskRoute?: Route;
   reader: ReaderState | null;
   /** on narrow screens only one pane is visible */
   mobilePane: 'desk' | 'reader';
@@ -123,6 +125,7 @@ export const useUI = create<UIState>((set, get) => ({
   toasts: [],
 
   navigate(route, opts) {
+    if (['stream', 'page', 'lens'].includes(route.name)) set({ lastDeskRoute: route });
     const hash = routeToHash(route);
     if (typeof location !== 'undefined' && location.hash !== hash) {
       if (opts?.replace) history.replaceState(null, '', hash);
@@ -132,6 +135,8 @@ export const useUI = create<UIState>((set, get) => ({
     if (typeof window !== 'undefined' && window.innerWidth < 900) set({ sidebarOpen: false });
   },
   openReader(sourceId, jump) {
+    // split-brain: when opening a source from the Library grid, bring the Desk back
+    if (get().route.name === 'library') get().navigate(get().lastDeskRoute ?? { name: 'stream' });
     set({
       reader: { sourceId, jump: jump ? { ...jump, nonce: Date.now() } : undefined },
       mobilePane: 'reader',

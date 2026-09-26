@@ -308,6 +308,9 @@ export function latexToUnicode(s: string): string {
   });
   t = t.replace(/\\([a-zA-Z]+)(?![a-zA-Z])\s?(\{\})?/g, (m, name: string) => (name in SYMBOLS ? SYMBOLS[name] : m));
   t = t.replace(STRIP_CMDS, '{');
+  // old-style font switches ({\em x}, {\bf x}) and control spaces
+  t = t.replace(/\\(?:em|it|bf|sc|tt|rm|sl|sf|itshape|bfseries|scshape|normalfont|upshape|mdseries|small|footnotesize|large|Large)(?![a-zA-Z])\s*/g, '');
+  t = t.replace(/\\ /g, ' ');
   t = t
     .replace(/\\([&%$#_{}])/g, (_m, c: string) => `\u0001${c.charCodeAt(0)}\u0001`)
     .replace(/---/g, '—')
@@ -318,7 +321,7 @@ export function latexToUnicode(s: string): string {
     .replace(/\\\\/g, ' ')
     .replace(/\\,/g, ' ')
     .replace(/[{}]/g, '')
-    .replace(/\\([a-zA-Z]+)\s*/g, '$1') // unknown commands: keep the word
+    .replace(/\\([a-zA-Z]+)/g, '$1') // unknown commands: keep the word
     .replace(/\u0001(\d+)\u0001/g, (_m, c: string) => String.fromCharCode(Number(c)))
     .replace(/[ \t\r\n]+/g, ' ')
     .trim();

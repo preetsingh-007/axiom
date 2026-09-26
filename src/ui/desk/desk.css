@@ -69,8 +69,20 @@
   display: flex;
   align-items: flex-start;
   min-height: 1.6em;
-  padding: 3px 0;
+  /* gutter (left) and anchor (right) live inside the box so paint containment can't clip them */
+  margin: 0 -40px 0 -34px;
+  padding: 3px 40px 3px 34px;
   border-radius: 6px;
+  /* off-screen blocks skip style/layout/paint: typing stays O(visible) on huge pages */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 34px;
+}
+.blk:focus-within,
+.blk.blk-ink,
+.blk.blk-embed,
+.blk.accordion-growing,
+.blk.accordion-shrinking {
+  content-visibility: visible;
 }
 .blk-body {
   flex: 1;
@@ -80,7 +92,7 @@
 }
 .blk-gutter {
   position: absolute;
-  left: -30px;
+  left: 4px;
   top: 4px;
   opacity: 0;
   transition: opacity var(--dur) var(--ease);
@@ -108,7 +120,7 @@
 }
 .blk-aside {
   position: absolute;
-  right: -34px;
+  right: 6px;
   top: 4px;
   display: flex;
   flex-direction: column;
@@ -137,7 +149,7 @@
 }
 .blk-time {
   position: absolute;
-  right: 34px;
+  right: 74px;
   top: 4px;
   white-space: nowrap;
   color: var(--text-faint);
@@ -152,7 +164,7 @@
 .blk-is-card::before {
   content: '';
   position: absolute;
-  left: -8px;
+  left: 26px;
   top: 8px;
   bottom: 8px;
   width: 2px;
@@ -420,23 +432,23 @@
   color: var(--text-faint);
   font: 11px var(--font-ui);
 }
-.blk-image,
-.blk-slide {
+.blk-image-fig,
+.blk-slide-fig {
   margin: 4px 0;
 }
-.blk-image img,
-.blk-slide img {
+.blk-image-fig img,
+.blk-slide-fig img {
   display: block;
   max-width: 100%;
   height: auto;
   border-radius: var(--radius);
 }
-.blk-slide img {
+.blk-slide-fig img {
   width: 100%;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
-.blk-image figcaption {
+.blk-image-fig figcaption {
   margin-top: 6px;
   color: var(--text-muted);
   font: 13px var(--font-ui);
@@ -489,8 +501,13 @@
   color: var(--text-faint);
   font: 13px var(--font-ui);
 }
-.tx .blk-gutter {
-  left: -26px;
+.tx .blk {
+  margin-left: -30px;
+  margin-right: -12px;
+  padding-right: 12px;
+}
+.tx .blk-aside {
+  display: none;
 }
 .tx-missing {
   display: inline-block;
@@ -654,8 +671,12 @@
 .sq-body .blk-body {
   font-size: 15.5px;
 }
+.sq-body .blk {
+  margin-right: -18px;
+  padding-right: 18px;
+}
 .sq-body .blk-aside {
-  right: -14px;
+  right: -6px;
 }
 .sq-back {
   margin: 0 0 10px -4px;
@@ -755,5 +776,20 @@
   }
   100% {
     background: transparent;
+  }
+}
+
+@media (max-width: 520px) {
+  .blk {
+    margin-left: -26px;
+    padding-left: 26px;
+    margin-right: -12px;
+    padding-right: 12px;
+  }
+  .blk-gutter {
+    left: 0;
+  }
+  .blk-aside {
+    right: -4px;
   }
 }

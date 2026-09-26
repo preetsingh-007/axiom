@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, type DragEvent } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { GripVertical, Anchor as AnchorIcon, Type, Sigma, Code2, PenLine, Copy, FileCode2, Trash2, Layers, CopyPlus, BookOpen } from 'lucide-react';
 import { blockAnchor, blockType, getBlock, snapshotBlock, insertBlockAfter, blockPlainText } from '../../core/blocks';
 import type { BlockType } from '../../core/schema';
@@ -10,6 +10,7 @@ import { InkBlock } from './blocks/InkBlock';
 import { Menu, type MenuItem } from '../components/Menu';
 import { blockActions } from './blockActions';
 import { useUI } from '../app/store';
+import { blockHeights } from './lazyMount';
 import { blockDragPayload, BLOCK_MIME, copyText, exportBlock } from './dragout';
 
 function formatTime(ts?: number) {
@@ -30,6 +31,13 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
   const toast = useUI((s) => s.toast);
   const isFlashcard = useYSelect(block, (b) => /#flashcard\b/i.test(blockPlainText(b)), { deep: true });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rowRef.current;
+    return () => {
+      if (el?.offsetHeight) blockHeights.set(id, el.offsetHeight);
+    };
+  }, [id]);
 
   const onDragStart = useCallback(
     (e: DragEvent) => {
@@ -125,7 +133,7 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
   const created = block.get('createdAt') as number | undefined;
 
   return (
-    <div className={`blk blk-${type}${compact ? ' blk-compact' : ''}${isFlashcard ? ' blk-is-card' : ''}`} data-block-id={id} data-block-index={index} data-block-type={type}>
+    <div ref={rowRef} className={`blk blk-${type}${compact ? ' blk-compact' : ''}${isFlashcard ? ' blk-is-card' : ''}`} data-block-id={id} data-block-index={index} data-block-type={type}>
       {!readOnly && (
         <div className="blk-gutter">
           <div

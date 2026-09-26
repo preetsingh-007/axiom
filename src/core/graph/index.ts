@@ -253,9 +253,23 @@ function extractBlock(b: Y.Map<unknown>, id: string): RawBlock {
   };
 }
 
+/** Per-block memo: re-parsing markdown for every block on each keystroke is O(page). */
+const extractMemo = new WeakMap<Y.Map<unknown>, { key: string; raw: RawBlock }>();
+
+function memoExtract(b: Y.Map<unknown>, id: string): RawBlock {
+  const anchor = blockAnchor(b);
+  const embed = blockEmbed(b);
+  const key = `${blockType(b)}\u0001${blockPlainText(b)}\u0001${anchor?.sourceId ?? ''}\u0001${embed ? embed.pageId + '#' + (embed.blockId ?? '') : ''}\u0001${b.get('createdAt') ?? ''}`;
+  const hit = extractMemo.get(b);
+  if (hit && hit.key === key && hit.raw.id === id) return hit.raw;
+  const raw = extractBlock(b, id);
+  extractMemo.set(b, { key, raw });
+  return raw;
+}
+
 function extractPage(doc: Y.Doc): RawBlock[] {
   const blocks = blocksOf(doc);
-  return blockIds(doc).map((id) => extractBlock(blocks.get(id)!, id));
+  return blockIds(doc).map((id) => memoExtract(blocks.get(id)!, id));
 }
 
 function toSnap(r: BlockRec): SnapBlock {

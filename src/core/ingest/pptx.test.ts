@@ -94,7 +94,7 @@ describe('parsePptx (edge cases)', () => {
           <p:txBody><a:bodyPr anchor="ctr"><a:normAutofit fontScale="50000"/></a:bodyPr><a:p><a:r><a:rPr sz="4000"><a:solidFill><a:schemeClr val="tx1"><a:alpha val="50000"/></a:schemeClr></a:solidFill></a:rPr><a:t>Half</a:t></a:r><a:r><a:rPr sz="4000" b="1"/><a:t> bold</a:t></a:r><a:br/><a:r><a:t>next</a:t></a:r></a:p></p:txBody></p:sp>
       </p:spTree></p:cSld></p:sld>`,
     );
-    const deck = await parsePptx(new Blob([await zip.generateAsync({ type: 'uint8array' })]));
+    const deck = await parsePptx(new Blob([await zip.generateAsync({ type: 'arraybuffer' })]));
     expect(deck.width).toBe(960);
     const [shape, text] = deck.slides[0].elements;
     expect(shape).toMatchObject({ kind: 'shape', geom: 'roundRect', fill: '#800000', rotation: 90, w: 100 });
@@ -113,6 +113,6 @@ describe('parsePptx (edge cases)', () => {
     await expect(parsePptx(new Blob(['nope']))).rejects.toThrow(/not a valid PowerPoint/);
     const zip = new JSZip();
     zip.file('word/document.xml', '<w:document/>');
-    await expect(parsePptx(new Blob([await zip.generateAsync({ type: 'uint8array' })]))).rejects.toThrow(/presentation\.xml/);
+    await expect(parsePptx(new Blob([await zip.generateAsync({ type: 'arraybuffer' })]))).rejects.toThrow(/presentation\.xml/);
   });
 });

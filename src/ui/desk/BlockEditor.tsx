@@ -8,7 +8,7 @@ import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { autocompletion, closeBrackets, completionStatus, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { tags as t } from '@lezer/highlight';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
-import type { FocusAt, EditorEnv } from './editorContext';
+import { takeTypeahead, type FocusAt, type EditorEnv } from './editorContext';
 
 export interface SlashCommand {
   id: string;
@@ -34,6 +34,8 @@ export interface BlockEditorProps {
   mode: 'text' | 'math' | 'code';
   env: EditorEnv;
   initialFocus: FocusAt;
+  /** bump to move the caret of an already-open editor to `initialFocus` */
+  focusNonce?: number;
   placeholder?: string;
   onEnterSplit?: (before: string, after: string) => void;
   onBackspaceAtStart?: (isEmpty: boolean) => void;
@@ -148,8 +150,22 @@ function slashSource(onSlash?: (cmd: string) => void) {
  */
 export function BlockEditor(props: BlockEditorProps) {
   const host = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
+
+  // caret moves requested while this editor is already open
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || props.focusNonce === undefined) return;
+    const len = view.state.doc.length;
+    const at = propsRef.current.initialFocus;
+    const pos = at === 'start' ? 0 : at === 'end' ? len : Math.max(0, Math.min(len, at));
+    view.dispatch({ selection: { anchor: pos } });
+    view.focus();
+    const early = takeTypeahead();
+    if (early) view.dispatch(view.state.replaceSelection(early));
+  }, [props.focusNonce]);
 
   useEffect(() => {
     const { ytext, mode, env, initialFocus } = propsRef.current;
@@ -164,8 +180,23 @@ export function BlockEditor(props: BlockEditorProps) {
           if (mode !== 'text' || !p().onEnterSplit) return false;
           const sel = view.state.selection.main;
           const doc = view.state.doc.toString();
+          // "/math⏎" typed faster than the menu appears still runs the command
+          const slash = /^\/([\w-]+)$/.exec(doc);
+          if (slash && p().onSlash && SLASH_COMMANDS.some((c) => c.id === slash[1])) {
+            view.dispatch({ changes: { from: 0, to: doc.length, insert: '' } });
+            p().onSlash!(slash[1]);
+            return true;
+          }
           // inside a fenced code region or display math: plain newline
           const before = doc.slice(0, sel.from);
+          // continue a non-empty list item in place ("- a⏎" → "- a\n- ")
+          const lastLine = before.slice(before.lastIndexOf('\n') + 1);
+          const lm = /^(\s*)([-*+]|(\d+)[.)])(\s+)(\[[ xX]\]\s+)?/.exec(lastLine);
+          if (lm && lastLine.slice(lm[0].length).trim()) {
+            const next = lm[3] ? `${Number(lm[3]) + 1}${lm[2].slice(-1)}` : lm[2];
+            view.dispatch(view.state.replaceSelection(`\n${lm[1]}${next}${lm[4]}${lm[5] ? '[ ] ' : ''}`));
+            return true;
+          }
           if ((before.match(/```/g)?.length ?? 0) % 2 === 1 || (before.match(/\$\$/g)?.length ?? 0) % 2 === 1) return false;
           p().onEnterSplit!(before, doc.slice(sel.to));
           return true;
@@ -273,14 +304,19 @@ export function BlockEditor(props: BlockEditorProps) {
       state: EditorState.create({ doc: ytext.toString(), extensions: exts }),
       parent: host.current!,
     });
+    viewRef.current = view;
     const len = view.state.doc.length;
     const pos = initialFocus === 'start' ? 0 : initialFocus === 'end' ? len : Math.max(0, Math.min(len, initialFocus));
     view.dispatch({ selection: { anchor: pos }, scrollIntoView: false });
     view.focus();
+    // replay keys typed while focus was moving here (e.g. right after Enter)
+    const early = takeTypeahead();
+    if (early) view.dispatch(view.state.replaceSelection(early));
     // keep the caret visible without jumping the page
     requestAnimationFrame(() => view.dom.scrollIntoView({ block: 'nearest' }));
 
     return () => {
+      viewRef.current = null;
       view.destroy();
       undoManager.destroy();
     };

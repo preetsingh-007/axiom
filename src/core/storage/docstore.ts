@@ -41,6 +41,8 @@ export class DocStore {
   private loaded: LRU<string, Loaded>;
   private loading = new Map<string, Promise<Y.Doc>>();
   private pending = new Map<string, Uint8Array[]>();
+  /** batches handed to IndexedDB but not yet committed (a concurrent load must still see them) */
+  private inflight = new Map<string, Uint8Array[][]>();
   private flushTimer: ReturnType<typeof setTimeout> | undefined;
   private writeChain: Promise<unknown> = Promise.resolve();
   private knownIds: Set<string> | null = null;
@@ -104,7 +106,9 @@ export class DocStore {
       const merged = rows.length === 1 ? rows[0].data : Y.mergeUpdates(rows.map((r) => r.data));
       Y.applyUpdate(doc, merged, LOAD_ORIGIN);
     }
-    // Pending, not-yet-flushed updates (e.g. remote updates received while unloaded)
+    // Updates not yet durable (e.g. remote updates received while unloaded): in flight to
+    // IndexedDB or still buffered. Re-applying something already in `rows` is a no-op.
+    for (const batch of this.inflight.get(docId) ?? []) for (const u of batch) Y.applyUpdate(doc, u, LOAD_ORIGIN);
     const pend = this.pending.get(docId);
     if (pend) for (const u of pend) Y.applyUpdate(doc, u, LOAD_ORIGIN);
 
@@ -133,6 +137,12 @@ export class DocStore {
     }
     // Cheap no-op detection: skip updates we already fully have.
     const sv = await this.getStateVector(docId);
+    // the doc may have been opened while we were reading: deliver to the live doc instead
+    const nowLive = this.loaded.get(docId)?.doc ?? (this.loading.has(docId) ? await this.loading.get(docId) : undefined);
+    if (nowLive) {
+      Y.applyUpdate(nowLive, update, { transport } satisfies RemoteOrigin);
+      return;
+    }
     const missing = Y.diffUpdate(update, sv);
     if (isEmptyUpdate(missing) && sv.length > 1) return;
     this.enqueue(docId, update);
@@ -147,6 +157,7 @@ export class DocStore {
     if (live) return Y.encodeStateAsUpdate(live);
     const rows = await this.db.getUpdates(docId);
     const parts = rows.map((r) => r.data);
+    for (const batch of this.inflight.get(docId) ?? []) parts.push(...batch);
     const pend = this.pending.get(docId);
     if (pend) parts.push(...pend);
     if (!parts.length) return null;
@@ -196,10 +207,26 @@ export class DocStore {
     if (!this.pending.size) return this.writeChain;
     const batch = [...this.pending];
     this.pending.clear();
+    for (const [docId, updates] of batch) {
+      const list = this.inflight.get(docId);
+      if (list) list.push(updates);
+      else this.inflight.set(docId, [updates]);
+    }
+    const settle = (docId: string, updates: Uint8Array[]) => {
+      const list = this.inflight.get(docId);
+      if (!list) return;
+      const i = list.indexOf(updates);
+      if (i >= 0) list.splice(i, 1);
+      if (!list.length) this.inflight.delete(docId);
+    };
     this.writeChain = this.writeChain.then(async () => {
       for (const [docId, updates] of batch) {
         const merged = updates.length === 1 ? updates[0] : Y.mergeUpdates(updates);
-        await this.db.putUpdate(docId, merged);
+        try {
+          await this.db.putUpdate(docId, merged);
+        } finally {
+          settle(docId, updates);
+        }
         const n = (this.appendCounts.get(docId) ?? 0) + 1;
         this.appendCounts.set(docId, n);
         if (n >= COMPACT_THRESHOLD) {

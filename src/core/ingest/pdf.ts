@@ -98,7 +98,7 @@ export async function openPdf(data: ArrayBuffer | Uint8Array, opts: OpenPdfOptio
     password: opts.password,
     disableAutoFetch: true,
     disableStream: false,
-    isEvalSupported: false,
+    // (`isEvalSupported` no longer exists in pdf.js 6: it never evals font code)
     ...(base
       ? {
           cMapUrl: `${base}cmaps/`,

@@ -12,6 +12,9 @@ async function watchLongTasks(page: Page) {
 }
 const longTasks = (page: Page) => page.evaluate(() => (window as unknown as { __long: number[] }).__long);
 
+// tracing snapshots the whole DOM on every action and would dominate the measurements
+test.use({ trace: 'off' });
+
 test.describe('performance', () => {
   test('a 2,000-block page renders quickly and typing stays jank-free', async ({ page }) => {
     await openApp(page);
@@ -26,13 +29,19 @@ test.describe('performance', () => {
     );
     const t0 = Date.now();
     await page.evaluate((pid) => (location.hash = `#/page/${pid}`), id);
-    await expect(page.locator('.blk-rendered', { hasText: 'Paragraph 1999 ' })).toBeAttached({ timeout: 20_000 });
-    const renderMs = Date.now() - t0;
-    console.log(`[perf] 2000-block page render: ${renderMs} ms`);
-    expect(renderMs).toBeLessThan(8000);
+    await expect(page.locator('.blk-rendered', { hasText: /^Paragraph 10 with/ })).toBeVisible({ timeout: 20_000 });
+    const firstPaint = Date.now() - t0;
+    // the rest mounts progressively in idle time; the whole page ends up in the DOM
+    await expect(page.locator('.blk-rendered', { hasText: /^Paragraph 1999 with/ })).toBeAttached({ timeout: 60_000 });
+    const full = Date.now() - t0;
+    console.log(`[perf] 2000-block page: first paint ${firstPaint} ms, fully mounted ${full} ms`);
+    expect(firstPaint).toBeLessThan(1500);
+    // jumping to the end renders immediately
+    await page.locator('.desk-scroll').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(page.locator('.blk-rendered', { hasText: /^Paragraph 1999 with/ })).toBeVisible();
 
     await watchLongTasks(page);
-    await page.locator('.blk-rendered', { hasText: 'Paragraph 5 ' }).click();
+    await page.locator('.blk-rendered', { hasText: /^Paragraph 5 with/ }).click();
     await page.keyboard.type(' typing without jank', { delay: 15 });
     await page.keyboard.press('Escape');
     const long = await longTasks(page);

@@ -10,6 +10,7 @@ import { suggestGhostTags } from '../../core/graph/ghost';
 import { getServicesUnsafe } from '../app/servicesRef';
 import type { AppServices } from '../app/bootstrap';
 import { useUI } from '../app/store';
+import type { AIConfig } from '../../core/ai/types';
 import { renderSlideToCanvas } from './pptx/PptxSlideView';
 
 interface ImportProgress {
@@ -152,9 +153,13 @@ async function importOne(file: File): Promise<string | null> {
   return id;
 }
 
+function hasModelProvider(cfg: AIConfig): boolean {
+  return !!(cfg.gemini?.apiKey || cfg.anthropic?.apiKey || (cfg.openai?.baseUrl && cfg.openai.model) || cfg.webllm?.enabled);
+}
+
 /** Background enrichment: ghost tags from the user's graph (+AI) and Crossref metadata. */
 async function enrich(sourceId: string, sampleText: string) {
-  const { vault, graph, ai } = getServicesUnsafe() as AppServices;
+  const { vault, graph, ai, aiConfig } = getServicesUnsafe() as AppServices;
   const src = vault.getSource(sourceId);
   if (!src) return;
   try {
@@ -163,7 +168,8 @@ async function enrich(sourceId: string, sampleText: string) {
       concepts: graph.concepts(),
       exclude: [...(src.tags ?? []), ...(src.dismissedGhostTags ?? [])],
       max: 6,
-      ai,
+      // the offline keyphrase fallback is too noisy for suggestions; use AI only when a real model is set up
+      ai: hasModelProvider(aiConfig.current) ? ai : undefined,
     });
     if (tags.length) vault.updateSource(sourceId, { ghostTags: tags.map((t) => t.tag) });
   } catch (e) {
