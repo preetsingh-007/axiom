@@ -1,3 +1,4 @@
+import * as Y from 'yjs';
 import { DocStore } from '../storage/docstore';
 import { hash64 } from '../util/ids';
 import { Emitter } from '../util/emitter';
@@ -60,6 +61,12 @@ export class SyncManager {
       t.onStatus((status) => {
         this.onStatus.emit({ transport: t.name, status });
         if (status === 'open') void this.greet(t);
+        else {
+          // forget peers of a dropped transport so they are greeted again after reconnecting
+          let changed = false;
+          for (const [k, p] of this.peers) if (p.transport === t.name) changed = this.peers.delete(k) || changed;
+          if (changed) this.onPeers.emit([...this.peers.values()]);
+        }
       }),
     );
     this.transports.set(t.name, { t, off });
@@ -153,6 +160,15 @@ export class SyncManager {
       case 'sync1': {
         const diff = await this.store.diff(header.doc, payload);
         if (diff && diff.length > 2) this.send(t, { t: 'sync2', doc: header.doc }, diff);
+        // symmetric: if the peer has something we lack, ask for it too
+        const mySv = await this.store.getStateVector(header.doc);
+        const mine = Y.decodeStateVector(mySv);
+        for (const [client, clock] of Y.decodeStateVector(payload)) {
+          if ((mine.get(client) ?? 0) < clock) {
+            this.send(t, { t: 'sync1', doc: header.doc }, mySv);
+            break;
+          }
+        }
         return;
       }
       case 'sync2':

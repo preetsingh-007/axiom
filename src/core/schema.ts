@@ -134,13 +134,15 @@ export interface SourceMeta {
   tags?: string[];
   ghostTags?: string[];
   dismissedGhostTags?: string[];
+  /** small cover/first-page image */
+  thumbBlobId?: string;
 }
 
 /** Per-source reading state; synced so a book re-opens where you left it on any device. */
 export interface ViewState {
   loc: SourceLocator;
   zoom: number;
-  /** scroll offset in px inside the current page (at zoom) for exact restoration */
+  /** fraction (0..1) scrolled inside the current page/chapter, for exact restoration at any zoom */
   intra?: number;
   updatedAt: number;
 }
@@ -188,6 +190,8 @@ export interface CardRecord {
   elapsedDays: number;
   leech?: boolean;
   suspended?: boolean;
+  /** index into the (re)learning steps while in a short-term state */
+  learningStep?: number;
   createdAt: number;
 }
 

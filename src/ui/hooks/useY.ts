@@ -1,8 +1,11 @@
 import { useEffect, useReducer, useRef, useSyncExternalStore } from 'react';
 import type * as Y from 'yjs';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyYType = Y.AbstractType<any>;
+
 /** Re-renders whenever the given Yjs type (or anything below it) changes. */
-export function useYDeep(type: Y.AbstractType<unknown> | null | undefined): number {
+export function useYDeep(type: AnyYType | null | undefined): number {
   const [version, bump] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     if (!type) return;
@@ -14,7 +17,7 @@ export function useYDeep(type: Y.AbstractType<unknown> | null | undefined): numb
 }
 
 /** Re-renders on shallow changes only (keys added/removed/replaced). */
-export function useYShallow(type: Y.AbstractType<unknown> | null | undefined): number {
+export function useYShallow(type: AnyYType | null | undefined): number {
   const [version, bump] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     if (!type) return;
@@ -29,7 +32,7 @@ export function useYShallow(type: Y.AbstractType<unknown> | null | undefined): n
  * Subscribes to a derived value of a Yjs type; re-renders only if the selected value
  * changes (by `isEqual`). Keeps big lists from re-rendering on unrelated edits.
  */
-export function useYSelect<T, Ty extends Y.AbstractType<unknown>>(
+export function useYSelect<T, Ty extends AnyYType>(
   type: Ty | null | undefined,
   select: (t: Ty) => T,
   opts: { deep?: boolean; isEqual?: (a: T, b: T) => boolean } = {},

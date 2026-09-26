@@ -37,6 +37,18 @@ export interface AIRequest {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * The raw task input (e.g. the note text) without prompt scaffolding. Heuristic providers
+   * ('local') work on this instead of the templated `prompt`.
+   */
+  input?: string;
+  /** structured task parameters, used by heuristic providers */
+  hints?: {
+    /** tags already in the vault; suggestions should prefer these */
+    existingTags?: string[];
+    /** desired number of items (tags, summary sentences, cloze cards) */
+    count?: number;
+  };
 }
 
 export interface AIResult {
@@ -50,6 +62,8 @@ export interface AIProvider {
   readonly supportsImages: boolean;
   /** true when configured and reachable enough to try */
   isConfigured(): boolean;
+  /** optional task filter; providers without it are assumed to handle every task */
+  supportsTask?(task: AITask): boolean;
   complete(req: AIRequest, signal?: AbortSignal): Promise<string>;
 }
 

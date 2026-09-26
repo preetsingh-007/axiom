@@ -1,0 +1,300 @@
+/* Graph view + backlinks panel. Only design tokens (CSS variables) are used for colours. */
+
+.gv-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  background: var(--bg);
+  touch-action: none;
+  user-select: none;
+  font-family: var(--font-ui);
+}
+
+.gv-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  cursor: grab;
+}
+
+.gv-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.gv-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-muted);
+}
+
+.gv-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.gv-search input {
+  width: 180px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.gv-count {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.gv-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.gv-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.gv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+}
+
+.gv-dot:first-child {
+  margin-left: 0;
+}
+
+.gv-dot-page {
+  background: var(--accent);
+}
+
+.gv-dot-concept {
+  background: var(--tag);
+}
+
+.gv-dot-daily {
+  background: var(--gold);
+}
+
+.gv-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.gv-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 280px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gv-tooltip-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.gv-tooltip-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+/* ---------------------------------------------------------------- backlinks panel */
+
+.gv-backlinks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-family: var(--font-ui);
+  color: var(--text);
+}
+
+.gv-bl-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.gv-bl-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gv-bl-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.gv-bl-toggle:hover {
+  color: var(--text);
+}
+
+.gv-bl-group {
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+
+.gv-bl-page {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--link);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gv-bl-page:hover {
+  text-decoration: underline;
+}
+
+.gv-bl-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.gv-bl-item:first-of-type {
+  border-top: 0;
+}
+
+.gv-bl-snippet {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.gv-bl-snippet:hover {
+  color: var(--accent);
+}
+
+.gv-bl-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.gv-bl-link:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.gv-bl-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.gv-bl-empty {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#1d2230" />
+    <meta name="description" content="Axiom — a zero-cost, local-first knowledge operating system for researchers." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Axiom</title>
+    <script>
+      // Apply the theme before first paint to avoid a flash.
+      try {
+        var t = localStorage.getItem('axiom-theme');
+        if (!t || t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"><div class="boot-splash"><div class="boot-mark">A</div></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

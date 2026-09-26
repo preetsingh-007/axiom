@@ -23,7 +23,17 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,svg,woff2,mjs,wasm}'],
+        globPatterns: ['**/*.{js,css,html,svg,woff2,mjs}'],
+        globIgnores: ['pdfjs/**'],
+        navigateFallbackDenylist: [/^\/pdfjs\//],
+        runtimeCaching: [
+          {
+            // pdf.js CMaps / standard fonts / wasm: fetched on demand, then available offline
+            urlPattern: ({ url }) => url.pathname.includes('/pdfjs/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'pdfjs-assets', expiration: { maxEntries: 500 } },
+          },
+        ],
       },
     }),
   ],
