@@ -4,7 +4,7 @@ import type * as Y from 'yjs';
 import { blockText, type BlockMap } from '../../../core/blocks';
 import { renderMarkdown } from '../../markdown/render';
 import { BlockEditor } from '../LazyBlockEditor';
-import { useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
+import { startTypeahead, useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
 import { blockActions } from '../blockActions';
 import { useYText } from '../../hooks/usePage';
 import { Transclusion } from './Transclusion';
@@ -109,6 +109,7 @@ export const TextBlock = memo(function TextBlock({ block, id, readOnly }: { bloc
       if (target.closest('.md-transclude')) return;
       if (readOnly || !api) return;
       if (window.getSelection()?.toString()) return; // user is selecting text to copy
+      startTypeahead(); // keys typed before the editor is ready are kept
       setEditing(caretFromClick(e, text));
     },
     [env, api, readOnly, text],

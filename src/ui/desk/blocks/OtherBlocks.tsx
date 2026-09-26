@@ -3,7 +3,7 @@ import type * as Y from 'yjs';
 import { blockEmbed, blockImage, blockText, blockAnchor, type BlockMap } from '../../../core/blocks';
 import { renderMath, escapeHtml } from '../../markdown/render';
 import { BlockEditor } from '../LazyBlockEditor';
-import { useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
+import { startTypeahead, useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
 import { blockActions } from '../blockActions';
 import { useBlobUrl, useYText } from '../../hooks/usePage';
 import { useYSelect } from '../../hooks/useY';
@@ -53,7 +53,7 @@ export const MathBlock = memo(function MathBlock({ block, id, readOnly }: { bloc
       role="button"
       tabIndex={0}
       aria-label={`Equation: ${tex}`}
-      onClick={() => !readOnly && setEditing('end')}
+      onClick={() => !readOnly && (startTypeahead(), setEditing('end'))}
       onKeyDown={(e) => e.key === 'Enter' && !readOnly && setEditing('end')}
       dangerouslySetInnerHTML={{ __html: preview }}
     />
@@ -85,7 +85,7 @@ export const CodeBlock = memo(function CodeBlock({ block, id, readOnly }: { bloc
     );
   }
   return (
-    <pre className="blk-code" onClick={() => !readOnly && setEditing('end')} data-lang={lang}>
+    <pre className="blk-code" onClick={() => !readOnly && (startTypeahead(), setEditing('end'))} data-lang={lang}>
       <code dangerouslySetInnerHTML={{ __html: code ? escapeHtml(code) : '<span class="blk-faint">Empty code block</span>' }} />
     </pre>
   );

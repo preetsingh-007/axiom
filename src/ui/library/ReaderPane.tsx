@@ -33,7 +33,7 @@ export function ReaderPane() {
   const [extract, setExtract] = useState<{ ex: Extraction; anchor: DOMRect; nonce: number } | null>(null);
   const [selection, setSelection] = useState<SelectionInfo | null>(null);
   const [goto, setGoto] = useState<{ page: number; nonce: number } | undefined>();
-  const [chapterJump, setChapterJump] = useState<{ chapter: number; nonce: number } | undefined>();
+  const [chapterJump, setChapterJump] = useState<{ chapter: number; fragment?: string; nonce: number } | undefined>();
 
   const onExtract = useCallback((ex: Extraction, anchor: DOMRect) => setExtract({ ex, anchor, nonce: Date.now() }), []);
   const onZoom = useCallback((z: number) => setZoom(Math.round(z * 100) / 100), []);
@@ -63,7 +63,7 @@ export function ReaderPane() {
 
   const tocJump = (e: TocEntry) => {
     if (e.page) setGoto({ page: e.page, nonce: Date.now() });
-    if (e.chapter !== undefined) setChapterJump({ chapter: e.chapter, nonce: Date.now() });
+    if (e.chapter !== undefined) setChapterJump({ chapter: e.chapter, fragment: (e as TocEntry & { fragment?: string }).fragment, nonce: Date.now() });
   };
 
   const seminar = async () => {

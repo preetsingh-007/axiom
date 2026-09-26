@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { EpubBook } from '../../core/ingest/types';
-import { parseEpub } from '../../core/ingest/epub';
+import { parseEpub, epubAnchorId } from '../../core/ingest/epub';
 import type { SourceLocator, SourceMeta } from '../../core/schema';
 import { useServices } from '../app/services';
 import { LassoOverlay } from './LassoOverlay';
@@ -43,7 +43,7 @@ export function EpubViewer({
   source: SourceMeta;
   tool: ReaderTool;
   jump?: { loc: SourceLocator; flash?: boolean; nonce: number };
-  chapterJump?: { chapter: number; nonce: number };
+  chapterJump?: { chapter: number; fragment?: string; nonce: number };
   onExtract(ex: Extraction, anchor: DOMRect): void;
 }) {
   const { vault } = useServices();
@@ -89,7 +89,19 @@ export function EpubViewer({
   }, [book, jump?.nonce]);
 
   useEffect(() => {
-    if (chapterJump) scrollToChapter(chapterJump.chapter, 0);
+    if (!chapterJump) return;
+    scrollToChapter(chapterJump.chapter, 0);
+    if (chapterJump.fragment) {
+      // the chapter may still be loading: retry briefly until the anchor exists
+      const id = epubAnchorId(chapterJump.chapter, chapterJump.fragment);
+      let tries = 0;
+      const seek = () => {
+        const el = document.getElementById(id);
+        if (el && scroll.current) scroll.current.scrollTo({ top: el.getBoundingClientRect().top - scroll.current.getBoundingClientRect().top + scroll.current.scrollTop - 12 });
+        else if (tries++ < 20) setTimeout(seek, 100);
+      };
+      setTimeout(seek, 50);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterJump?.nonce]);
 
