@@ -126,6 +126,9 @@ export interface GraphIndexOptions {
 
 /** Plain text kept per block. */
 export const MAX_TEXT = 2000;
+
+/** Normalised tags that are feature switches rather than concepts. */
+export const SYSTEM_TAGS = new Set(['flashcard']);
 const SNIPPET = 180;
 const TITLE_BOOST = 3;
 const PERSIST_KEY = 'graph-index-v1';
@@ -1093,6 +1096,7 @@ export class GraphIndex {
   /** Every link / tag target with usage counts, plus concept pages (aliases folded). */
   concepts(): ConceptInfo[] {
     if (this.conceptsCache) return this.conceptsCache;
+    // system tags (e.g. #flashcard) drive features, they are not knowledge
     const blocksBy = new Map<string, Set<MutableEntry>>();
     const fold = (map: Map<string, Set<MutableEntry>>) => {
       for (const [n, set] of map) {
@@ -1114,6 +1118,7 @@ export class GraphIndex {
     for (const info of this.meta.values()) if (info.kind === 'concept' && !blocksBy.has(info.norm)) blocksBy.set(info.norm, new Set());
     const out: ConceptInfo[] = [];
     for (const [n, set] of blocksBy) {
+      if (SYSTEM_TAGS.has(n)) continue;
       const pageId = this.nameToPage.get(n);
       const title = (pageId && this.meta.get(pageId)?.title) || this.display.get(n) || n;
       out.push({ title, normalized: n, count: set.size, pageId });
@@ -1152,7 +1157,7 @@ export class GraphIndex {
       for (const { entry } of rec.blocks.values()) {
         const targets = new Set<string>();
         for (const n of entry.links) targets.add(targetOf(n));
-        for (const n of entry.tags) targets.add(targetOf(n));
+        for (const n of entry.tags) if (!SYSTEM_TAGS.has(n)) targets.add(targetOf(n));
         if (entry.embedRef && nodes.has(entry.embedRef.pageId)) targets.add(entry.embedRef.pageId);
         for (const t of targets) addLink(pageId, t);
       }

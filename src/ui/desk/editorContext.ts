@@ -10,6 +10,8 @@ export type FocusAt = 'start' | 'end' | number;
 const typeahead = {
   active: false,
   text: '',
+  /** Escape pressed during the hand-off: the editor closes right after replaying */
+  escape: false,
   /** when capturing stopped without an editor claiming the text */
   stashedAt: 0,
   timer: undefined as ReturnType<typeof setTimeout> | undefined,
@@ -17,8 +19,12 @@ const typeahead = {
 
 function onTypeaheadKey(e: KeyboardEvent) {
   if (!typeahead.active || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
-  if (e.key.length === 1) {
+  if (e.key.length === 1 && !typeahead.escape) {
     typeahead.text += e.key;
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (e.key === 'Escape') {
+    typeahead.escape = true;
     e.preventDefault();
     e.stopPropagation();
   }
@@ -35,6 +41,7 @@ export function startTypeahead() {
   if (typeof window === 'undefined') return;
   if (!typeahead.active) {
     typeahead.text = '';
+    typeahead.escape = false;
     window.addEventListener('keydown', onTypeaheadKey, true);
   }
   typeahead.active = true;
@@ -47,13 +54,14 @@ export function startTypeahead() {
 }
 
 /** Stops buffering and returns what was typed during the hand-off. */
-export function takeTypeahead(): string {
-  const stashed = !typeahead.active && typeahead.text && Date.now() - typeahead.stashedAt < 5000;
-  if (!typeahead.active && !stashed) return '';
+export function takeTypeahead(): { text: string; escape: boolean } {
+  const stashed = !typeahead.active && (typeahead.text || typeahead.escape) && Date.now() - typeahead.stashedAt < 5000;
+  if (!typeahead.active && !stashed) return { text: '', escape: false };
   stopCapture();
-  const t = typeahead.text;
+  const out = { text: typeahead.text, escape: typeahead.escape };
   typeahead.text = '';
-  return t;
+  typeahead.escape = false;
+  return out;
 }
 
 /**

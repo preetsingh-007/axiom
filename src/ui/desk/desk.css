@@ -793,3 +793,7 @@
     right: -4px;
   }
 }
+.blk-editor-loading {
+  white-space: pre-wrap;
+  caret-color: transparent;
+}

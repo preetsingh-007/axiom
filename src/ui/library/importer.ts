@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import JSZip from 'jszip';
 import type { BibMeta, SourceKind, SourceMeta, TocEntry } from '../../core/schema';
 import { openPdf, analyzePdf, closePdf } from '../../core/ingest/pdf';
 import { parseEpub } from '../../core/ingest/epub';
@@ -34,6 +33,7 @@ export async function detectKind(file: File): Promise<SourceKind | 'ppt' | null>
     if (/\.epub$/i.test(file.name)) return 'epub';
     if (/\.pptx$/i.test(file.name)) return 'pptx';
     try {
+      const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(file);
       if (zip.file('ppt/presentation.xml')) return 'pptx';
       if (zip.file('META-INF/container.xml')) return 'epub';

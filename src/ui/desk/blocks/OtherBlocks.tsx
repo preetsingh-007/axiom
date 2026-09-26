@@ -2,7 +2,7 @@ import { memo, useState, useEffect } from 'react';
 import type * as Y from 'yjs';
 import { blockEmbed, blockImage, blockText, blockAnchor, type BlockMap } from '../../../core/blocks';
 import { renderMath, escapeHtml } from '../../markdown/render';
-import { BlockEditor } from '../BlockEditor';
+import { BlockEditor } from '../LazyBlockEditor';
 import { useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
 import { blockActions } from '../blockActions';
 import { useBlobUrl, useYText } from '../../hooks/usePage';

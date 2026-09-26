@@ -12,6 +12,7 @@ import { GlobalDrop } from './GlobalDrop';
 import { EditorEnvProvider } from './EditorEnvProvider';
 import { AIBridgeDialog } from '../review/AIBridgeDialog';
 import { useInkShortcuts, InkToolbar } from '../ink/InkToolbar';
+import { preloadEditor } from '../desk/LazyBlockEditor';
 
 const LibraryView = lazy(() => import('../library/LibraryView').then((m) => ({ default: m.LibraryView })));
 const ReaderPane = lazy(() => import('../library/ReaderPane').then((m) => ({ default: m.ReaderPane })));
@@ -130,6 +131,8 @@ export function App() {
 
   useEffect(() => {
     document.getElementById('root')?.classList.add('ready');
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1200));
+    idle(() => preloadEditor());
   }, []);
 
   return (

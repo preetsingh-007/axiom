@@ -163,9 +163,15 @@ export function BlockEditor(props: BlockEditorProps) {
     const pos = at === 'start' ? 0 : at === 'end' ? len : Math.max(0, Math.min(len, at));
     view.dispatch({ selection: { anchor: pos } });
     view.focus();
-    const early = takeTypeahead();
-    if (early) view.dispatch(view.state.replaceSelection(early));
+    replayTypeahead(view);
   }, [props.focusNonce]);
+
+  /** Applies keys typed while focus was moving to this editor. */
+  function replayTypeahead(view: EditorView) {
+    const early = takeTypeahead();
+    if (early.text) view.dispatch(view.state.replaceSelection(early.text));
+    if (early.escape) setTimeout(() => propsRef.current.onEscape?.(), 0);
+  }
 
   useEffect(() => {
     const { ytext, mode, env, initialFocus } = propsRef.current;
@@ -310,8 +316,7 @@ export function BlockEditor(props: BlockEditorProps) {
     view.dispatch({ selection: { anchor: pos }, scrollIntoView: false });
     view.focus();
     // replay keys typed while focus was moving here (e.g. right after Enter)
-    const early = takeTypeahead();
-    if (early) view.dispatch(view.state.replaceSelection(early));
+    replayTypeahead(view);
     // keep the caret visible without jumping the page
     requestAnimationFrame(() => view.dom.scrollIntoView({ block: 'nearest' }));
 

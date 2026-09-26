@@ -15,6 +15,8 @@ import {
 import { LOCAL_ORIGIN } from '../../core/storage/docstore';
 import type { BlockType } from '../../core/schema';
 import type { PageEditorApi } from './editorContext';
+import { undoManagerFor } from './undo';
+import { useUI } from '../app/store';
 
 const TEXTUAL: BlockType[] = ['text', 'math', 'code'];
 
@@ -133,12 +135,16 @@ export function blockActions(api: PageEditorApi, id: string) {
 
     remove() {
       const prev = neighbour(doc, id, -1);
-      deleteBlock(doc, id);
+      const um = undoManagerFor(doc);
+      um.stopCapturing();
+      // delete + (re)seed an empty block form one undo step
+      doc.transact(() => {
+        deleteBlock(doc, id);
+        if (blockIds(doc).length === 0) insertBlock(doc, { type: 'text', text: '' });
+      }, LOCAL_ORIGIN);
+      um.stopCapturing();
+      useUI.getState().toast({ message: 'Block deleted', action: { label: 'Undo', run: () => um.undo() }, timeout: 5000 });
       if (prev) api.focus(prev, 'end');
-      if (blockIds(doc).length === 0) {
-        const nid = insertBlock(doc, { type: 'text', text: '' });
-        api.focus(nid, 'start');
-      }
     },
 
     appendText(suffix: string) {

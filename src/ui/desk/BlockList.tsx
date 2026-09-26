@@ -12,6 +12,7 @@ import { blobToImageRef } from './blocks/imageImport';
 import { useUI } from '../app/store';
 import { LOCAL_ORIGIN } from '../../core/storage/docstore';
 import { importFilesToLibrary } from '../library/importer';
+import { setActiveDoc, undoManagerFor } from './undo';
 import { EAGER_BLOCKS, blockHeights, scheduleMount, whenNearViewport } from './lazyMount';
 
 /** Placeholder with the block's last known size until it is near the viewport or idle time mounts it. */
@@ -58,6 +59,9 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
   const [dropAt, setDropAt] = useState<number | null>(null);
   const toast = useUI((s) => s.toast);
   useAccordion(ref, doc, !readOnly);
+  useEffect(() => {
+    if (!readOnly) undoManagerFor(doc);
+  }, [doc, readOnly]);
 
   const indexFromY = (clientY: number): number => {
     const els = [...(ref.current?.querySelectorAll<HTMLElement>(':scope > .blist-items > .blk') ?? [])];
@@ -140,6 +144,8 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
       <div
         ref={ref}
         className="blist"
+        onPointerDownCapture={() => !readOnly && setActiveDoc(doc)}
+        onFocusCapture={() => !readOnly && setActiveDoc(doc)}
         onDragOver={onDragOver}
         onDragLeave={(e) => {
           if (!ref.current?.contains(e.relatedTarget as Node)) setDropAt(null);

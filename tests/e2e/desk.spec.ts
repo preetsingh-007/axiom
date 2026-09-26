@@ -41,6 +41,26 @@ test.describe('Active Desk', () => {
     await expect(today.locator('.blk-rendered', { hasText: 'after the list' })).toBeVisible();
   });
 
+  test('deleted blocks come back with Undo (toast and Ctrl+Z)', async ({ page }) => {
+    await openApp(page);
+    await typeInNewBlock(page, 'keep me safe');
+    await page.keyboard.press('Escape');
+    const row = page.locator('.day-today .blk', { hasText: 'keep me safe' });
+    await row.hover();
+    await row.locator('.blk-handle').click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(row).toHaveCount(0);
+    await page.locator('.ui-toast').getByRole('button', { name: 'Undo' }).click();
+    await expect(row).toHaveCount(1);
+    // again, restored with the keyboard
+    await row.hover();
+    await row.locator('.blk-handle').click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await expect(row).toHaveCount(0);
+    await page.keyboard.press('Control+z');
+    await expect(row).toHaveCount(1);
+  });
+
   test('[[links]] create concept pages with backlinks', async ({ page }) => {
     await openApp(page);
     // closeBrackets auto-pairs "[[", typing "]]" steps over the pair

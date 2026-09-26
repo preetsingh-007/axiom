@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type * as Y from 'yjs';
 import { blockText, type BlockMap } from '../../../core/blocks';
 import { renderMarkdown } from '../../markdown/render';
-import { BlockEditor } from '../BlockEditor';
+import { BlockEditor } from '../LazyBlockEditor';
 import { useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
 import { blockActions } from '../blockActions';
 import { useYText } from '../../hooks/usePage';

@@ -43,17 +43,6 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 1500,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('pdfjs-dist')) return 'pdfjs';
-          if (id.includes('katex')) return 'katex';
-          if (id.includes('@codemirror') || id.includes('@lezer') || id.includes('y-codemirror')) return 'codemirror';
-          if (id.includes('node_modules/yjs') || id.includes('lib0')) return 'yjs';
-          return undefined;
-        },
-      },
-    },
   },
   server: { port: 5173, host: true },
 });
