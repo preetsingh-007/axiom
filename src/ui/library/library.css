@@ -15,12 +15,16 @@
   background: var(--bg);
   flex: none;
 }
+.reader-bar {
+  container-type: inline-size;
+}
 .reader-title {
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .reader-title-text {
   overflow: hidden;
@@ -29,7 +33,11 @@
   font: 600 13.5px var(--font-ui);
 }
 .reader-bibkey {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-faint);
   font: 12px var(--font-mono);
 }
@@ -75,6 +83,16 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+@container (max-width: 620px) {
+  .reader-bibkey {
+    display: none;
+  }
+}
+@container (max-width: 470px) {
+  .reader-title {
+    visibility: hidden;
+  }
 }
 @media (max-width: 700px) {
   .reader-title {

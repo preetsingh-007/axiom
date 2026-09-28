@@ -13,9 +13,8 @@ import { useUI } from '../app/store';
 import { blockHeights } from './lazyMount';
 import { blockDragPayload, BLOCK_MIME, copyText, exportBlock } from './dragout';
 
-function formatTime(ts?: number) {
-  if (!ts) return '';
-  return new Date(ts).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' });
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 /**
@@ -153,6 +152,11 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
           {menuAnchor && <Menu anchor={menuAnchor} items={menu()} onClose={() => setMenuAnchor(null)} />}
         </div>
       )}
+      {showTime && created ? (
+        <time className="blk-time" dateTime={new Date(created).toISOString()} title={new Date(created).toLocaleString()}>
+          {formatTime(created)}
+        </time>
+      ) : null}
       <div className="blk-body">{content}</div>
       <div className="blk-aside">
         {anchor && (
@@ -165,7 +169,6 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
             <AnchorIcon size={14} />
           </button>
         )}
-        {showTime && created && <time className="blk-time">{formatTime(created)}</time>}
       </div>
     </div>
   );

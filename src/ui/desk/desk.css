@@ -148,12 +148,16 @@
   transform: rotate(-12deg);
 }
 .blk-time {
+  /* in the left gutter, under the drag handle: never overlaps the text */
   position: absolute;
-  right: 74px;
-  top: 4px;
+  left: 0;
+  top: 31px;
+  width: 34px;
+  text-align: center;
   white-space: nowrap;
   color: var(--text-faint);
-  font: 11px var(--font-ui);
+  font: 10px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   opacity: 0;
   transition: opacity var(--dur);
   pointer-events: none;
@@ -796,4 +800,20 @@
 .blk-editor-loading {
   white-space: pre-wrap;
   caret-color: transparent;
+}
+@media (max-width: 520px) {
+  .blk-time {
+    display: none;
+  }
+}
+.backlink-block .blk-gutter,
+.backlink-block .blk-aside {
+  display: none;
+}
+.backlink-block .blk {
+  margin: 0;
+  padding: 0;
+}
+.backlink-block .blk-body {
+  font-size: 15px;
 }

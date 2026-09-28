@@ -1,0 +1,569 @@
+<!doctype html>
+<!-- Generated from the same source as the hosted guide. Serve this folder with GitHub Pages (Settings → Pages → /docs). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="media/icon.svg" type="image/svg+xml">
+<title>Axiom Guide</title>
+<meta name="description" content="Install and use Axiom, the local-first knowledge OS for researchers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:opsz,wght@6..72,500;6..72,650&display=swap">
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --sunken: #eeece5;
+    --text: #1d2230;
+    --muted: #5d6373;
+    --faint: #8c92a0;
+    --rule: #e2dfd5;
+    --accent: #3d5bd9;
+    --accent-soft: rgba(61, 91, 217, 0.1);
+    --gold: #b7850f;
+    --gold-soft: rgba(224, 165, 38, 0.16);
+    --code-bg: #1d2230;
+    --code-text: #e7e8ee;
+    --shadow: 0 18px 44px rgba(29, 34, 48, 0.13), 0 2px 6px rgba(29, 34, 48, 0.06);
+    --serif: 'Newsreader', 'Iowan Old Style', Charter, Georgia, serif;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121419;
+      --surface: #1a1d24;
+      --sunken: #0e1014;
+      --text: #e4e5e9;
+      --muted: #a2a7b3;
+      --faint: #6f7584;
+      --rule: #2a2e38;
+      --accent: #8fa6ff;
+      --accent-soft: rgba(143, 166, 255, 0.13);
+      --gold: #f2c14e;
+      --gold-soft: rgba(242, 193, 78, 0.14);
+      --code-bg: #0b0d11;
+      --code-text: #e4e5e9;
+      --shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121419;
+    --surface: #1a1d24;
+    --sunken: #0e1014;
+    --text: #e4e5e9;
+    --muted: #a2a7b3;
+    --faint: #6f7584;
+    --rule: #2a2e38;
+    --accent: #8fa6ff;
+    --accent-soft: rgba(143, 166, 255, 0.13);
+    --gold: #f2c14e;
+    --gold-soft: rgba(242, 193, 78, 0.14);
+    --code-bg: #0b0d11;
+    --code-text: #e4e5e9;
+    --shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding-inline: 24px; }
+
+  /* top bar */
+  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); }
+  .bar .wrap { display: flex; align-items: center; gap: 12px; height: 56px; }
+  .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: #1d2230; color: #f2c14e; font: 650 17px var(--serif); }
+  .brand { font: 600 16px var(--sans); color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 10px; }
+  .bar nav { margin-left: auto; display: flex; gap: 18px; font-size: 14px; }
+  .bar nav a { color: var(--muted); text-decoration: none; }
+  .bar nav a:hover { color: var(--text); }
+
+  /* hero */
+  .hero { padding-block: 56px 28px; display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); }
+  .eyebrow { font: 600 12px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+  h1 { font: 650 clamp(40px, 6vw, 64px)/1.02 var(--serif); letter-spacing: -0.02em; margin: 10px 0 16px; text-wrap: balance; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 60ch; margin: 0; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+  .facts li { display: flex; align-items: center; gap: 8px; }
+  .facts li::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 10px; font: 500 15px var(--sans); text-decoration: none; border: 1px solid var(--rule); color: var(--text); background: var(--surface); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .btn.primary { color: #0e1014; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0e1014; } }
+
+  /* demo frames */
+  .demo { margin: 0; }
+  .frame { border-radius: 12px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--rule); }
+  .frame-bar { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-bottom: 1px solid var(--rule); background: var(--sunken); }
+  .frame-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--rule); }
+  .frame-bar span { margin-left: 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--mono); color: var(--faint); }
+  .frame img { display: block; width: 100%; height: auto; max-width: 100%; }
+  figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); }
+
+  /* layout: toc + content */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; padding-block: 24px 80px; }
+  @media (min-width: 1000px) { .layout { grid-template-columns: 210px minmax(0, 1fr); } }
+  .toc { display: none; }
+  @media (min-width: 1000px) {
+    .toc { display: block; position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); align-self: start; font-size: 14px; }
+  }
+  .toc p { font: 600 11px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 10px; }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; }
+  .toc a:hover { color: var(--text); background: var(--accent-soft); }
+  .toc a.on { color: var(--text); border-left-color: var(--accent); background: var(--accent-soft); }
+
+  main section { padding-top: 28px; margin-top: 28px; border-top: 1px solid var(--rule); scroll-margin-top: 72px; }
+  main section:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+  h2 { font: 650 32px/1.15 var(--serif); letter-spacing: -0.01em; margin: 0 0 12px; text-wrap: balance; }
+  h3 { font: 600 17px/1.35 var(--sans); margin: 28px 0 8px; }
+  main p, main li { max-width: 68ch; }
+  main p { margin: 0 0 14px; }
+  main ul, main ol { padding-left: 1.3em; margin: 0 0 16px; }
+  main li { margin: 4px 0; }
+  .split { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; margin: 18px 0 8px; }
+  @media (min-width: 1180px) { .split { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
+
+  code { font: 0.88em var(--mono); background: var(--sunken); padding: 1px 6px; border-radius: 5px; }
+  .code { position: relative; margin: 12px 0 18px; max-width: 76ch; }
+  .code pre { margin: 0; padding: 14px 16px; border-radius: 10px; background: var(--code-bg); color: var(--code-text); overflow-x: auto; font: 13.5px/1.6 var(--mono); }
+  .code pre .c { color: #8a93a8; }
+  .copy { position: absolute; top: 8px; right: 8px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06); color: #cfd3de; font: 500 12px var(--sans); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  .copy:hover { background: rgba(255,255,255,0.14); }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; position: relative; padding-left: 44px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font: 600 13px var(--sans); }
+
+  .note { border-left: 3px solid var(--gold); background: var(--gold-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; max-width: 68ch; font-size: 15px; }
+  .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font: 600 12px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+  kbd { font: 12px var(--mono); padding: 1px 6px; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); white-space: nowrap; }
+  .pill { display: inline-block; font: 500 12px var(--sans); padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  footer { border-top: 1px solid var(--rule); padding-block: 28px; color: var(--faint); font-size: 14px; }
+  @media (max-width: 640px) { .code pre { padding-top: 40px; } .bar nav { display: none; } .hero { padding-block: 36px 16px; } h2 { font-size: 27px; } }
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true">A</span>Axiom</a>
+    <nav aria-label="Primary">
+      <a href="#install">Install</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#shortcuts">Shortcuts</a>
+      <a href="https://github.com/preetsingh-007/axiom">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap" id="top">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">User guide</div>
+      <h1>Axiom</h1>
+      <p class="lede">A local-first research notebook. Read papers, textbooks and slide decks on one side, think and derive on the other, and move ideas between them with a lasso. Your notes live on your devices and sync between them for free.</p>
+      <ul class="facts">
+        <li>Works offline</li>
+        <li>End-to-end encrypted sync</li>
+        <li>Git backup you own</li>
+        <li>No subscription</li>
+      </ul>
+      <div class="cta">
+        <a class="btn primary" href="#install">Install Axiom</a>
+        <a class="btn" href="#quickstart">Take the 5-minute tour</a>
+      </div>
+    </div>
+    <figure class="demo">
+      <div class="frame">
+        <div class="frame-bar"><i></i><i></i><i></i><span>Daily Stream · writing with LaTeX and [[links]]</span></div>
+        <picture>
+          <source media="(prefers-reduced-motion: reduce)" srcset="media/writing.png">
+          <img src="media/writing.gif" width="1180" height="700" alt="Typing a note with inline LaTeX and a wiki link, inserting a display equation with /math, then opening the linked concept page with its backlinks.">
+        </picture>
+      </div>
+    </figure>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <aside class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ol>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#quickstart">Quick start</a></li>
+      <li><a href="#desk">Writing on the Desk</a></li>
+      <li><a href="#library">The Library</a></li>
+      <li><a href="#lasso">Lasso &amp; Drop</a></li>
+      <li><a href="#whiteboard">Whiteboard &amp; Beautify</a></li>
+      <li><a href="#flashcards">Flashcards</a></li>
+      <li><a href="#graph">Graph, search &amp; Lenses</a></li>
+      <li><a href="#sync">Sync &amp; backup</a></li>
+      <li><a href="#ai">AI providers</a></li>
+      <li><a href="#citations">Citations</a></li>
+      <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+      <li><a href="#data">Your data</a></li>
+      <li><a href="#testing">How it is tested</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+    </ol>
+  </aside>
+
+  <main>
+    <section id="install">
+      <h2>Install</h2>
+      <p>Axiom is a Progressive Web App: one codebase that runs in the browser and installs like a native app on macOS, Windows, Linux, iPad and Android. You need <strong>Node.js 20 or newer</strong> to build it.</p>
+
+      <h3>Run it on your computer</h3>
+      <div class="code"><pre><span class="c"># get the code and its dependencies</span>
+git clone https://github.com/preetsingh-007/axiom.git
+cd axiom
+npm install
+
+<span class="c"># start it, then open http://localhost:5173</span>
+npm run dev</pre></div>
+
+      <h3>Host your own copy</h3>
+      <p>The production build is a folder of static files. Put it on any static host: GitHub Pages, Netlify, Cloudflare Pages, or a home server.</p>
+      <div class="code"><pre>npm run build        <span class="c"># writes dist/</span>
+npm run preview      <span class="c"># try the build at http://localhost:4173</span></pre></div>
+
+      <h3>Install it as an app</h3>
+      <ul>
+        <li><strong>Chrome or Edge:</strong> the install icon in the address bar, or menu → <em>Install Axiom</em>.</li>
+        <li><strong>Safari on iPad or iPhone:</strong> Share → <em>Add to Home Screen</em>.</li>
+        <li><strong>Android:</strong> menu → <em>Install app</em>.</li>
+      </ul>
+      <p>After the first load everything works offline, including opening PDFs you have already imported.</p>
+
+      <h3>Optional: a sync relay</h3>
+      <p>To sync live between devices, run the small relay server anywhere your devices can reach. It forwards encrypted messages and stores nothing.</p>
+      <div class="code"><pre>npm run relay                              <span class="c"># listens on port 8787</span>
+node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options</span></pre></div>
+      <p>Put it behind HTTPS (so devices use <code>wss://</code>), for example on a free Fly.io or Render instance, or through a Cloudflare tunnel. <code>server/README.md</code> has the details.</p>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quick start</h2>
+      <p>The first time you open Axiom it creates a short <em>Welcome</em> page you can edit or delete. Then:</p>
+      <ol class="steps">
+        <li><strong>Write in today's page.</strong> The Daily Stream opens on <em>Today</em>. Click below the date and type. Press <kbd>Enter</kbd> for a new block.</li>
+        <li><strong>Link an idea.</strong> Type <code>[[</code> and a name, for example <code>[[Reinforcement Learning]]</code>. The link creates a concept page that collects everything pointing at it.</li>
+        <li><strong>Import a paper.</strong> Drag a PDF, EPUB or PPTX anywhere onto the window, or open <em>Library → Import</em>. Axiom reads the title, authors, table of contents and DOI, and gives it a BibTeX key such as <code>lovelace2024semantic</code>.</li>
+        <li><strong>Open it side by side.</strong> Click the paper. It opens on the left and your Desk stays on the right.</li>
+        <li><strong>Lasso something into your notes.</strong> Turn on the lasso tool (or hold <kbd>Alt</kbd> and drag, or just use a stylus), circle a paragraph, and press <em>Send to Desk</em>.</li>
+        <li><strong>Mark it for review.</strong> Add <code>#flashcard</code> to any block. It appears under <em>Review</em> with cloze cards made for you.</li>
+      </ol>
+    </section>
+
+    <section id="desk">
+      <h2>Writing on the Desk</h2>
+      <p>Everything you write is a list of blocks: paragraphs, equations, code, images, whiteboards and embedded pages. Click a block to edit it; click away or press <kbd>Esc</kbd> to see it rendered.</p>
+      <h3>What you can type</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Type</th><th>You get</th></tr></thead>
+        <tbody>
+          <tr><td><code>$E = mc^2$</code></td><td>Inline math, rendered with KaTeX</td></tr>
+          <tr><td><code>$$</code> in an empty block, or <code>/math</code></td><td>A display equation with a live preview</td></tr>
+          <tr><td><code>[[Page]]</code> or <code>[[Page|label]]</code></td><td>A link; the page is created if it doesn't exist</td></tr>
+          <tr><td><code>#tag</code> or <code>#[[two words]]</code></td><td>A tag, which is also a concept page</td></tr>
+          <tr><td><code>![[Page]]</code></td><td>The whole page shown inline, live and editable</td></tr>
+          <tr><td><code>{{c1::answer}}</code></td><td>An explicit cloze deletion for flashcards</td></tr>
+          <tr><td><code>/</code> at the start of a block</td><td>Commands: math, whiteboard, code, image, embed, flashcard, today's date</td></tr>
+          <tr><td>Markdown</td><td>Headings, lists, <strong>bold</strong>, <em>italics</em>, quotes, tables, links</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Moving blocks around</h3>
+      <p>Hover a block and use the handle on its left to drag it, or click the handle for a menu: turn into text, equation or code; copy as Markdown or LaTeX; make a flashcard; duplicate; delete. Deleting shows an <em>Undo</em> button, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> outside the editor undoes block changes too.</p>
+      <h3>The Side-Quest panel</h3>
+      <p>Press <kbd>Ctrl</kbd>+<kbd>.</kbd> to open a scratchpad on the right. Look up a concept there without leaving what you were reading. <kbd>Shift</kbd>-click any link to open it in that panel.</p>
+      <h3>Export</h3>
+      <p>Drag a block out of Axiom into Overleaf, VS Code or a Markdown editor: text arrives as Markdown, equations as LaTeX, whiteboards as SVG. The page menu (<em>…</em>) exports the whole page as <code>.md</code> or <code>.tex</code>.</p>
+    </section>
+
+    <section id="library">
+      <h2>The Library</h2>
+      <p>The Library keeps your sources untouched: PDFs, EPUB books and PowerPoint decks. It remembers where you stopped reading, your zoom level and your highlights, on every device.</p>
+      <ul>
+        <li><strong>Large books</strong> open quickly because only the pages near your scroll position are rendered. A 300-page test textbook keeps fewer than 16 pages in memory.</li>
+        <li><strong>Table of contents</strong> appears as a tree on the left of the reader. Click an entry to jump to it.</li>
+        <li><strong>Highlights:</strong> select text and pick a colour. The same menu sends the quote to your Desk or looks it up in the Side-Quest panel.</li>
+        <li><strong>Slide decks</strong> are shown as one vertical stream. <em>Seminar notebook</em> turns a deck into a Desk page with whiteboard space under every slide, ready for a talk.</li>
+        <li><strong>Suggested tags</strong> appear in light grey on each source, based on concepts you already use. Tap one to keep it, or × to dismiss it.</li>
+      </ul>
+    </section>
+
+    <section id="lasso">
+      <h2>Lasso &amp; Drop</h2>
+      <div class="split">
+        <div>
+          <p>Circle any region of a source. Axiom works out what you selected and shows a preview card:</p>
+          <ul>
+            <li><strong>Text</strong> becomes Markdown. Two-column papers are read in the right order, hyphenated line breaks are joined, and headings and lists are kept.</li>
+            <li><strong>Equations</strong> become LaTeX. With a vision-capable AI provider set up, Axiom reads the image for an exact transcription.</li>
+            <li><strong>Figures</strong> become images, cropped at high resolution.</li>
+          </ul>
+          <p>Switch between Text, LaTeX and Image on the card, then press <em>Send to Desk</em> or drag the card to the exact spot you want.</p>
+          <p>Every extracted block carries a gold anchor. Click it and the reader jumps back to that page and flashes the region you took it from.</p>
+          <div class="note">Three ways to lasso: the lasso tool in the reader's toolbar, holding <kbd>Alt</kbd> while dragging with a mouse, or drawing with a stylus.</div>
+        </div>
+        <figure class="demo">
+          <div class="frame">
+            <div class="frame-bar"><i></i><i></i><i></i><span>Lasso a paragraph, send it to the Desk, jump back</span></div>
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="media/lasso.png">
+              <img src="media/lasso.gif" width="1120" height="680" loading="lazy" alt="A PDF open on the left. A lasso is drawn around the abstract, a preview card shows it as Markdown, and Send to Desk adds it to today's page with an anchor that jumps back to the source.">
+            </picture>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="whiteboard">
+      <h2>Whiteboard &amp; Beautify</h2>
+      <div class="split">
+        <div>
+          <h3>Make room to think</h3>
+          <p>On a touch screen, put two fingers between two paragraphs and spread them apart. Whiteboard space opens under your fingers. Pinch an empty whiteboard to close it again. On a laptop, pinch on the trackpad, or hover between blocks and click the small <strong>+</strong>.</p>
+          <h3>Draw</h3>
+          <p>Pick a tool from the floating toolbar or press <kbd>P</kbd> pen, <kbd>H</kbd> highlighter, <kbd>E</kbd> eraser, <kbd>L</kbd> lasso, <kbd>V</kbd> pointer. With a stylus, Axiom switches to the pen automatically and ignores your palm.</p>
+          <h3>Beautify</h3>
+          <p>Lasso messy ink and double-tap inside the selection. Circles, boxes, lines and arrows snap into clean, aligned shapes. Handwriting turns into text, and written maths into LaTeX, when an AI provider is set up. Tap the result to switch back to your original ink at any time.</p>
+        </div>
+        <figure class="demo">
+          <div class="frame">
+            <div class="frame-bar"><i></i><i></i><i></i><span>Spread to open space, sketch, double-tap to Beautify</span></div>
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="media/whiteboard.png">
+              <img src="media/whiteboard.gif" width="1100" height="720" loading="lazy" alt="Two touch points spread between two questions to open a whiteboard. A rough circle and arrow are drawn, lassoed, and snap into a clean circle and arrow.">
+            </picture>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="flashcards">
+      <h2>Flashcards</h2>
+      <div class="split">
+        <div>
+          <p>Add <code>#flashcard</code> to any block on your Desk. Axiom writes cloze cards from it: bold terms, links, inline maths and definitions become blanks. Write <code>{{c1::…}}</code> yourself when you want exact control.</p>
+          <p>Open <em>Review</em>, press <kbd>Space</kbd> to show the answer, then rate it with <kbd>1</kbd> Again, <kbd>2</kbd> Hard, <kbd>3</kbd> Good or <kbd>4</kbd> Easy. The buttons show when the card will come back. Scheduling uses FSRS and syncs with your notes.</p>
+          <p>If you keep failing a card, Axiom flags it and offers a button to reopen the source passage it came from.</p>
+          <p>New cards per day, target retention and the failure threshold are under <em>Settings → Spaced repetition</em>.</p>
+        </div>
+        <figure class="demo">
+          <div class="frame">
+            <div class="frame-bar"><i></i><i></i><i></i><span>Reviewing cloze cards</span></div>
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="media/review.png">
+              <img src="media/review.gif" width="1100" height="680" loading="lazy" alt="The review screen shows a cloze card, reveals the answer, and moves to the next card after pressing Good.">
+            </picture>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="graph">
+      <h2>Graph, search &amp; Lenses</h2>
+      <div class="split">
+        <div>
+          <p><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> searches every page, block and source, and runs commands. The <em>Graph</em> view shows how pages and concepts connect; click a node to open it.</p>
+          <p>A <strong>Lens</strong> is a saved search whose results are live, editable blocks gathered from across your notes. Examples:</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Query</th><th>Shows</th></tr></thead>
+            <tbody>
+              <tr><td><code>[[Reinforcement Learning]] OR source:"Sutton"</code></td><td>Blocks about a topic plus everything taken from one book</td></tr>
+              <tr><td><code>is:flashcard type:math</code></td><td>Equations you are memorising</td></tr>
+              <tr><td><code>has:anchor after:2026-09-01</code></td><td>Recent extracts from your reading</td></tr>
+              <tr><td><code>#todo -#done</code></td><td>Open tasks</td></tr>
+            </tbody>
+          </table></div>
+          <p>Every so often Axiom notices near-duplicate tags, such as <code>RL</code> and <code>Reinforcement Learning</code>, and offers to merge them.</p>
+        </div>
+        <figure class="demo">
+          <div class="frame">
+            <div class="frame-bar"><i></i><i></i><i></i><span>Search, graph and a Lens</span></div>
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="media/navigate.png">
+              <img src="media/navigate.gif" width="1180" height="700" loading="lazy" alt="The command palette searches for variance, then the graph view shows connected pages, then a Lens gathers matching blocks from several pages.">
+            </picture>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="sync">
+      <h2>Sync &amp; backup</h2>
+      <div class="split">
+        <div>
+          <p>Axiom saves every change on your device first. Tabs in the same browser stay in sync automatically. Two layers are optional:</p>
+          <h3>Live sync between devices</h3>
+          <ol class="steps">
+            <li>On your first device, open <em>Settings → Sync &amp; backup</em> and press <em>Create a sync key</em>.</li>
+            <li>Enter your relay address (for example <code>wss://relay.example.com</code>), turn on real-time sync and press <em>Save</em>.</li>
+            <li>Copy the join code (it starts with <code>AXJ1.</code>) or the join link.</li>
+            <li>On the other device, paste it into the same screen and press <em>Join</em>, then <em>Save</em>. Opening the join link does this in one step.</li>
+          </ol>
+          <p>Everything is encrypted before it leaves the device. The relay sees only ciphertext and cannot read your notes.</p>
+          <h3>Git backup</h3>
+          <p>Add a GitHub or GitLab personal access token and a repository name. Axiom commits in the background: the notes themselves, optionally your PDFs and images, and a readable Markdown copy of every page under <code>axiom/markdown/</code>. Tokens stay on the device.</p>
+          <p>Two devices can edit the same page offline. When they reconnect, both sets of changes are kept.</p>
+        </div>
+        <figure class="demo">
+          <div class="frame">
+            <div class="frame-bar"><i></i><i></i><i></i><span>Two windows editing the same notes</span></div>
+            <picture>
+              <source media="(prefers-reduced-motion: reduce)" srcset="media/sync.png">
+              <img src="media/sync.gif" width="1280" height="640" loading="lazy" alt="Two windows labelled Laptop and Tablet. Text typed in one appears in the other as it is typed, in both directions.">
+            </picture>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="ai">
+      <h2>AI providers</h2>
+      <p>Axiom works without AI. Shapes are recognised on your device, and tags, summaries and cloze cards have built-in fallbacks. Handwriting and equation recognition need a model. Under <em>Settings → AI</em>, set any of these and put them in the order you prefer:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Provider</th><th>Cost</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Google AI Studio (Gemini)</td><td>Free tier</td><td>Reads images; a good first choice</td></tr>
+          <tr><td>OpenAI-compatible endpoint</td><td>Free if local</td><td>Works with Ollama and LM Studio on your machine, OpenRouter, or OpenAI</td></tr>
+          <tr><td>Anthropic API key</td><td>Your key</td><td>Claude models</td></tr>
+          <tr><td>On-device model</td><td>Free</td><td>Runs in the browser with WebGPU; about 1 GB download, then fully offline</td></tr>
+          <tr><td>Subscription bridge</td><td>Your ChatGPT or Claude plan</td><td>Copies the prompt and opens your chat tab; you paste the answer back</td></tr>
+        </tbody>
+      </table></div>
+      <p>Keys are stored only on the device and are sent only to the provider you chose.</p>
+    </section>
+
+    <section id="citations">
+      <h2>Citations</h2>
+      <ul>
+        <li>Every import gets a standard BibTeX key: first author's surname, year and the first significant title word, as in <code>vaswani2017attention</code>.</li>
+        <li>When a DOI is found, Axiom fills in authors, year and venue from Crossref. Use <em>Refresh citation metadata</em> on a source to try again.</li>
+        <li><strong>Zotero:</strong> add your user ID and an API key under <em>Settings → Citations</em>, then press <em>Sync with Zotero</em>. Changes flow both ways.</li>
+        <li><strong>Mendeley and Better BibTeX:</strong> use <em>Library → … → Import BibTeX</em> and <em>Export library as BibTeX</em>.</li>
+        <li>Blocks you extract keep their source, so exported Markdown cites <code>[@key, p. 4]</code> and LaTeX cites <code>\cite{key}</code>.</li>
+      </ul>
+    </section>
+
+    <section id="shortcuts">
+      <h2>Keyboard shortcuts</h2>
+      <p>On macOS use <kbd>⌘</kbd> where this table says <kbd>Ctrl</kbd>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Where</th><th>Keys</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Anywhere</td><td><kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>/</kbd></td><td>Search and commands</td></tr>
+          <tr><td>Anywhere</td><td><kbd>Ctrl</kbd>+<kbd>.</kbd></td><td>Side-Quest panel</td></tr>
+          <tr><td>Anywhere</td><td><kbd>Ctrl</kbd>+<kbd>\</kbd></td><td>Show or hide the sidebar</td></tr>
+          <tr><td>Anywhere</td><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd></td><td>New note</td></tr>
+          <tr><td>Anywhere</td><td><kbd>Shift</kbd>+<kbd>T</kbd> / <kbd>G</kbd> / <kbd>R</kbd></td><td>Today, Graph, Review</td></tr>
+          <tr><td>Editing</td><td><kbd>Enter</kbd> · <kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New block · new line in the same block</td></tr>
+          <tr><td>Editing</td><td><kbd>Backspace</kbd> at the start</td><td>Join with the block above</td></tr>
+          <tr><td>Editing</td><td><kbd>↑</kbd> <kbd>↓</kbd> at the edges</td><td>Move to the previous or next block</td></tr>
+          <tr><td>Editing</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>Insert a whiteboard below</td></tr>
+          <tr><td>Editing</td><td><kbd>Esc</kbd></td><td>Stop editing</td></tr>
+          <tr><td>Desk</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Undo or redo block changes</td></tr>
+          <tr><td>Ink</td><td><kbd>P</kbd> <kbd>H</kbd> <kbd>E</kbd> <kbd>L</kbd> <kbd>V</kbd></td><td>Pen, highlighter, eraser, lasso, pointer</td></tr>
+          <tr><td>Reader</td><td><kbd>Alt</kbd>+drag · <kbd>Ctrl</kbd>+scroll</td><td>Lasso · zoom</td></tr>
+          <tr><td>Review</td><td><kbd>Space</kbd> · <kbd>1</kbd>–<kbd>4</kbd> · <kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Show answer · rate · undo the last rating</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="data">
+      <h2>Your data</h2>
+      <ul>
+        <li>Notes, sources and settings are stored in your browser's storage on each device. Nothing is sent anywhere unless you turn on sync, Git backup or an AI provider.</li>
+        <li><em>Settings → Your data</em> shows how much space is used, exports every page as Markdown in a zip file, and can ask the browser to keep the data permanently.</li>
+        <li>Want separate notebooks? Add <code>?vault=thesis</code> to the address to open a different vault.</li>
+      </ul>
+    </section>
+
+    <section id="testing">
+      <h2>How it is tested</h2>
+      <p>Every recording on this page was made from the real app by an automated browser script (<code>npm run demos</code>), so what you see is what the build does.</p>
+      <div class="code"><pre>npm test            <span class="c"># 398 unit tests (Vitest)</span>
+npm run test:e2e    <span class="c"># 28 end-to-end tests (Playwright, desktop + tablet)</span>
+npm run typecheck</pre></div>
+      <p>The end-to-end suite drives a real Chromium through the production build:</p>
+      <ul>
+        <li><span class="pill">Desk</span> writing with maths, splitting and joining blocks, lists, links and backlinks, slash commands, the palette, the Side-Quest panel, undo</li>
+        <li><span class="pill">Library</span> PDF metadata and BibTeX keys, reading position, highlights, a 300-page textbook, EPUB, PPTX, seminar notebooks</li>
+        <li><span class="pill">Lasso</span> extracting a paragraph and jumping back through its anchor</li>
+        <li><span class="pill">Touch</span> two-finger spread and pinch with real touch events, plus trackpad pinch</li>
+        <li><span class="pill">Ink</span> drawing, erasing, and Beautify turning a rough circle into a shape</li>
+        <li><span class="pill">Sync</span> two isolated browsers syncing through the encrypted relay; two tabs syncing with no server</li>
+        <li><span class="pill">Speed</span> a 2,000-block page paints in under 1.5 s with no typing lag; search over 10,000 blocks returns in about 1 ms</li>
+      </ul>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <h3>A PDF shows “not downloaded to this device yet”</h3>
+      <p>Sync carries notes, but files travel only through Git backup with <em>Also back up source files</em> turned on, or when you import the file on that device too.</p>
+      <h3>Settings says a device with a different sync key is in the room</h3>
+      <p>Two devices are using different keys. Copy the join code from one device and paste it on the other.</p>
+      <h3>Handwriting stays as ink after Beautify</h3>
+      <p>Shapes work offline, but reading handwriting needs an AI provider. Add one under <em>Settings → AI</em>.</p>
+      <h3>A <code>.ppt</code> file won't import</h3>
+      <p>The old binary PowerPoint format isn't supported. Save the deck as <code>.pptx</code> or PDF and import that.</p>
+      <h3>Storage is full</h3>
+      <p>Axiom keeps unsaved changes in memory and keeps retrying. Free some space, or turn on Git backup and remove large sources you no longer need.</p>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">Axiom is open source under the MIT licence · <a href="https://github.com/preetsingh-007/axiom">github.com/preetsingh-007/axiom</a></div>
+</footer>
+
+<script>
+  // copy buttons on code blocks
+  document.querySelectorAll('.code').forEach((box) => {
+    const btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', () => {
+      const text = box.querySelector('pre').innerText.split('\n').filter((l) => !l.trim().startsWith('#')).map((l) => l.replace(/\s+#.*$/, '')).join('\n').trim();
+      const done = () => { btn.textContent = 'Copied'; setTimeout(() => (btn.textContent = 'Copy'), 1400); };
+      const fallback = () => {
+        const range = document.createRange();
+        range.selectNodeContents(box.querySelector('pre'));
+        const sel = getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        btn.textContent = 'Press Ctrl+C';
+      };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+      else fallback();
+    });
+    box.appendChild(btn);
+  });
+  // highlight the current section in the table of contents
+  const links = [...document.querySelectorAll('.toc a')];
+  const byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      links.forEach((a) => a.classList.remove('on'));
+      byId.get(e.target.id)?.classList.add('on');
+    }
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('main section').forEach((s) => io.observe(s));
+</script>
+
+</html>

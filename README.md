@@ -4,6 +4,45 @@
 
 Axiom is a Progressive Web App (installable on desktop, iPad and Android) built on CRDTs. Your notes live on your devices, sync between them in real time with end-to-end encryption, and are silently backed up to your own GitHub/GitLab repository.
 
+<p align="center">
+  <img src="docs/media/writing.gif" width="880" alt="Writing in the Daily Stream: inline LaTeX, a wiki link, a /math display equation, then the linked concept page with live backlinks">
+</p>
+
+📖 **[User guide](docs/index.html)** — installation, a 5-minute tour, every feature, keyboard shortcuts and troubleshooting. Enable GitHub Pages (Settings → Pages → branch, folder `/docs`) to serve it at `https://<you>.github.io/axiom/`.
+
+## See it in action
+
+Every animation below was recorded from the real production build by an automated browser script (`npm run demos`).
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/media/lasso.gif" alt="Lasso a paragraph in a PDF, send it to the Desk, click its anchor to jump back">
+      <p><b>Lasso &amp; Drop.</b> Circle a passage in a two-column paper; it lands on the Desk as clean Markdown with a ⚓ Wormhole anchor that jumps back to the exact spot.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/media/whiteboard.gif" alt="Two-finger spread opens whiteboard space; a rough circle and arrow are beautified">
+      <p><b>Elastic canvas &amp; Beautify.</b> Spread two fingers between paragraphs to open whiteboard space, sketch, then double-tap a lasso selection to snap shapes clean (reversible).</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/media/sync.gif" alt="Two windows editing the same notes in real time">
+      <p><b>Real-time sync.</b> Two devices edit the same page; CRDT merges mean no conflicts, online or offline.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/media/review.gif" alt="Reviewing auto-generated cloze flashcards">
+      <p><b>Flashcards.</b> Tag any block <code>#flashcard</code>; cloze cards are generated and scheduled with FSRS.</p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <img src="docs/media/navigate.gif" alt="Command palette search, knowledge graph and a Lens">
+      <p><b>Search, graph &amp; Lenses.</b> ⌘K search across everything, a force-directed knowledge graph, and Lenses that gather live, editable blocks from across the vault.</p>
+    </td>
+  </tr>
+</table>
+
 ---
 
 ## Features
@@ -78,9 +117,10 @@ tests/e2e/              Playwright end-to-end, touch-gesture, sync and performan
 ## Testing
 
 ```bash
-npm test               # unit tests (Vitest)
-npm run test:e2e       # end-to-end (Playwright, desktop + tablet touch profiles)
+npm test               # 398 unit tests (Vitest)
+npm run test:e2e       # 28 end-to-end tests (Playwright, desktop + tablet touch profiles)
 npm run typecheck
+npm run demos          # re-record the README / guide animations (needs `npm run preview` running)
 ```
 
 The e2e suite covers editing, linking, lasso extraction + Wormhole jumps, highlights, a 300-page textbook, seminar notebooks, EPUB/PPTX, two-finger accordion gestures (real CDP touch events), FSRS reviews, two-device encrypted sync through the relay, multi-tab sync, and performance budgets (2,000-block pages, 10k-block search, textbook flinging).
