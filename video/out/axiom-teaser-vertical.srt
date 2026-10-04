@@ -1,0 +1,27 @@
+1
+00:00:00,350 --> 00:00:05,739
+Twenty-three tabs. Four apps. A folder of screenshots you'll never find again.
+
+2
+00:00:06,995 --> 00:00:08,769
+Research shouldn't look like this.
+
+3
+00:00:09,277 --> 00:00:10,503
+Meet Axiom.
+
+4
+00:00:14,441 --> 00:00:24,256
+Paper on the left, thinking on the right. Lasso anything: text lands as Markdown, equations as LaTeX, and every snippet links back to its exact spot.
+
+5
+00:00:27,532 --> 00:00:34,618
+Write on your laptop and watch it appear on your tablet. Real-time, end-to-end encrypted, and fully offline.
+
+6
+00:00:38,441 --> 00:00:48,637
+And AI that reads your handwriting, transcribes equations, suggests tags and writes your flashcards. Free tiers, a local model, or no key at all.
+
+7
+00:00:52,964 --> 00:00:55,085
+Free. Open source. Yours.
