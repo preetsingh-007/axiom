@@ -1,0 +1,32 @@
+{
+  "voices": { "F": "af_heart", "M": "am_michael" },
+  "speed": 1.05,
+  "lines": [
+    { "id": "cold1", "who": "M", "text": "Twenty-three tabs. Four apps. A folder of screenshots you'll never find again." },
+    { "id": "cold2", "who": "F", "text": "Research shouldn't look like this." },
+    { "id": "cold3", "who": "F", "text": "Meet Axiom." },
+
+    { "id": "f1", "who": "F", "text": "Paper on the left, thinking on the right. Lasso anything: text lands as Markdown, equations as LaTeX, and every snippet links back to its exact spot.", "say": "Paper on the left, thinking on the right. Lasso anything: text lands as Markdown, equations as lay-tech, and every snippet links back to its exact spot." },
+    { "id": "f2", "who": "M", "text": "Need space? Spread two fingers and the page opens up. Sketch roughly, double-tap, and it snaps clean." },
+    { "id": "f3", "who": "F", "text": "Type LaTeX and it renders live. Link ideas with double brackets, and backlinks build themselves.", "say": "Type lay-tech and it renders live. Link ideas with double brackets, and backlinks build themselves." },
+    { "id": "f4", "who": "M", "text": "Tag a note as a flashcard. Axiom schedules reviews right before you'd forget." },
+    { "id": "f5", "who": "F", "text": "Search everything in a keystroke, see how ideas connect, and gather a whole topic into one Lens." },
+    { "id": "f6", "who": "M", "text": "Write on your laptop and watch it appear on your tablet. Real-time, end-to-end encrypted, and fully offline." },
+    { "id": "f7", "who": "F", "text": "Every page is plain Markdown in your own GitHub or GitLab repo. Full history. Zero lock-in." },
+    { "id": "f8", "who": "M", "text": "And AI that reads your handwriting, transcribes equations, suggests tags and writes your flashcards. Free tiers, a local model, or no key at all." },
+
+    { "id": "bridge1", "who": "M", "text": "That's Axiom." },
+    { "id": "bridge2", "who": "F", "text": "Now let's set it up. Start the clock." },
+
+    { "id": "s1", "who": "M", "text": "Clone, install, run. Three commands, Node 20 or newer.", "say": "Clone, install, run. Three commands, Node twenty or newer." },
+    { "id": "s2", "who": "F", "text": "Click Install, or Add to Home Screen on iPad. It works offline from here.", "say": "Click Install, or Add to Home Screen on eye-pad. It works offline from here." },
+    { "id": "s3", "who": "M", "text": "Drop in a PDF, EPUB or slide deck.", "say": "Drop in a P D F, an ee-pub, or a slide deck." },
+    { "id": "s4", "who": "F", "text": "Start the relay, create a sync key, paste it on your other device. Connected and encrypted." },
+    { "id": "s5", "who": "M", "text": "Now backup. Create a GitHub token for one repo, paste it into Settings, and every change is committed automatically." },
+    { "id": "s6", "who": "F", "text": "Finally, AI. Grab a free Gemini key, paste it in, hit Test. Prefer local? Point it at Ollama.", "say": "Finally, A I. Grab a free Gemini key, paste it in, hit Test. Prefer local? Point it at oh-llama." },
+    { "id": "done", "who": "M", "text": "Done." },
+
+    { "id": "out1", "who": "M", "text": "Axiom." },
+    { "id": "out2", "who": "F", "text": "Free. Open source. Yours." }
+  ]
+}

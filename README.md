@@ -8,6 +8,8 @@ Axiom is a Progressive Web App (installable on desktop, iPad and Android) built 
   <img src="docs/media/writing.gif" width="880" alt="Writing in the Daily Stream: inline LaTeX, a wiki link, a /math display equation, then the linked concept page with live backlinks">
 </p>
 
+🎬 **[Demo video](video/out/axiom-demo.mp4)** (2:50): eight features, then a three-minute setup guide. There's also a [60-second vertical teaser](video/out/axiom-teaser-vertical.mp4). Both are generated from code in [`video/`](video/README.md), using footage of the real app.
+
 📖 **[User guide](docs/index.html)** — installation, a 5-minute tour, every feature, keyboard shortcuts and troubleshooting. Enable GitHub Pages (Settings → Pages → branch, folder `/docs`) to serve it at `https://<you>.github.io/axiom/`.
 
 ## See it in action

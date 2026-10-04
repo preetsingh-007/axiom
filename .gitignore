@@ -8,3 +8,6 @@ playwright-report
 .DS_Store
 .vite
 public/pdfjs
+
+# demo video intermediates (regenerate with video/make.sh)
+video/build

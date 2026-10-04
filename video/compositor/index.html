@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Axiom demo compositor</title>
+<!--
+  Frame-accurate compositor for the Axiom demo video. Nothing animates on its own: render.mjs
+  calls window.seek(t) for every frame and screenshots the stage.
+    /compositor/?layout=h            16:9, full timeline (build/timeline.json)
+    /compositor/?layout=v&timeline=teaser.json   9:16 teaser
+-->
+<style>
+  @font-face { font-family: 'Inter'; src: url(/build/fonts/inter.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Fraunces'; src: url(/build/fonts/fraunces.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Fraunces'; src: url(/build/fonts/fraunces-italic.woff2) format('woff2'); font-weight: 100 900; font-style: italic; }
+  @font-face { font-family: 'Mono'; src: url(/build/fonts/mono.woff2) format('woff2'); font-weight: 400; }
+  @font-face { font-family: 'Mono'; src: url(/build/fonts/mono-bold.woff2) format('woff2'); font-weight: 700; }
+
+  :root {
+    --navy: #0e1326; --navy2: #182042; --ink: #1d2230; --paper: #f6f3ec; --indigo: #6c7bff; --indigo-d: #3d5bd9;
+    --gold: #f0bd4f; --gold-d: #c9932a; --white: #f5f6fb; --muted: #a9b0cf; --green: #3fbf87; --red: #ef5a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; overflow: hidden; background: var(--navy); color: var(--white); font-family: Inter, sans-serif; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .hide { display: none !important; }
+
+  /* background */
+  #bg { background: radial-gradient(120% 90% at 50% 40%, #1c2550 0%, #121835 45%, #0a0e1f 100%); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  #grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; }
+
+  /* cold open */
+  .mw { position: absolute; border-radius: 10px; background: #fff; color: #222; box-shadow: 0 18px 40px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.3); overflow: hidden; font: 13px Inter; transform-origin: 50% 50%; }
+  .mw .bar { height: 26px; background: #e9e9ee; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid #d6d6dc; }
+  .mw .bar i { width: 9px; height: 9px; border-radius: 50%; background: #d0d0d6; display: block; }
+  .mw .bar span { margin-left: 8px; font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mw .tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: #dcdce3; }
+  .mw .tabs b { font-weight: 500; font-size: 10px; background: #ececf1; padding: 4px 8px; border-radius: 6px 6px 0 0; white-space: nowrap; max-width: 92px; overflow: hidden; text-overflow: ellipsis; color: #444; }
+  .mw .body { padding: 12px 14px; }
+  .mw .ln { height: 6px; border-radius: 3px; background: #dcdde3; margin: 7px 0; }
+  .mw.pdf { background: #5b5e66; } .mw.pdf .page { background: #fff; margin: 10px auto; width: 82%; padding: 12px; }
+  .mw.note { background: #fff7c2; } .mw.note .body { font: 15px 'Fraunces'; color: #4b4320; }
+  .mw.shot { background: #fff; padding: 6px; } .mw.shot .img { height: 70%; background: linear-gradient(135deg,#d8dcef,#b9c1e6); border-radius: 4px; } .mw.shot .cap { font: 11px Inter; padding: 6px 2px 0; color: #333; white-space: nowrap; }
+  .mw.card { background: #fff; } .mw.card .q { font: 600 16px Inter; padding: 18px; text-align: center; color: #333; }
+  #counters { position: absolute; display: flex; gap: 14px; font: 600 26px Inter; }
+  #counters span { background: rgba(10,14,31,.78); border: 1px solid rgba(255,255,255,.12); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(6px); }
+  #counters b { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  /* big titles */
+  .title { position: absolute; left: 0; right: 0; text-align: center; font-family: Fraunces, serif; font-weight: 600; letter-spacing: -.01em; line-height: 1.04; }
+  .kicker { position: absolute; left: 0; right: 0; text-align: center; font: 700 22px Inter; letter-spacing: .32em; color: var(--gold); text-transform: uppercase; }
+  #lasso { width: 100%; height: 100%; overflow: visible; }
+  #lasso path { fill: none; stroke: var(--gold); stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 10px rgba(240,189,79,.45)); }
+
+  /* logo */
+  #logoMark { position: absolute; border-radius: 28%; background: #1d2230; box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.06); display: grid; place-items: center; }
+  #logoMark span { font-family: Fraunces; font-weight: 700; color: var(--gold); }
+  #logoWord { position: absolute; font-family: Fraunces; font-weight: 650; letter-spacing: -.02em; }
+  #tagline { position: absolute; left: 0; right: 0; text-align: center; font: 500 34px Inter; color: var(--muted); }
+  #tagline span { display: inline-block; margin: 0 .28em; }
+  .ring { position: absolute; border-radius: 50%; border: 3px solid var(--gold); }
+
+  /* app window */
+  #win { position: absolute; transform-origin: 50% 50%; }
+  #winframe { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); }
+  #winbar { position: absolute; left: 0; right: 0; top: 0; background: #eceae4; border-bottom: 1px solid #dcd9d1; display: flex; align-items: center; }
+  #winbar .dots { display: flex; gap: 8px; } #winbar .dots i { display: block; border-radius: 50%; }
+  #winbar .url { position: absolute; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 8px; color: #4a4f5e; font-family: Inter; display: flex; align-items: center; gap: 8px; border: 1px solid #ddd9cf; }
+  #winbar .url .install { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; color: #3d5bd9; }
+  #wincontent { position: absolute; left: 0; right: 0; bottom: 0; overflow: hidden; background: #f5f3ee; }
+  #wincontent > * { position: absolute; left: 0; top: 0; width: 1920px; height: 1140px; transform-origin: 0 0; }
+  #clipimg { object-fit: cover; }
+  #win.bare #winframe { background: transparent; box-shadow: none; border-radius: 0; } #win.bare #winbar { display: none; }
+  #win.bare #wincontent { background: transparent; }
+  #segLabel { position: absolute; z-index: 5; display: flex; align-items: center; gap: 10px; background: rgba(14,19,38,.92); color: var(--white); border-radius: 999px; font: 600 20px Inter; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  #segLabel i { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); display: block; }
+  #illus { position: absolute; z-index: 5; font: 600 14px Inter; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.85); background: rgba(14,19,38,.7); padding: 6px 12px; border-radius: 8px; }
+
+  /* HUD */
+  #chip { position: absolute; font: 700 22px Inter; padding: 10px 18px; border-radius: 999px; background: rgba(240,189,79,.12); color: var(--gold); border: 1.5px solid rgba(240,189,79,.55); white-space: nowrap; transform-origin: 50% 50%; }
+  #featLabel { position: absolute; font: 600 22px Inter; color: var(--muted); white-space: nowrap; }
+  #featLabel b { color: var(--gold); margin-right: 12px; font-variant-numeric: tabular-nums; }
+  #ringBox { position: absolute; }
+  #ringBox svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+  #ringBox .num { position: absolute; inset: 0; display: grid; place-items: center; font: 700 21px Inter; font-variant-numeric: tabular-nums; }
+  #ringBox .cap { position: absolute; right: calc(100% + 12px); top: 50%; transform: translateY(-50%); font: 600 16px Inter; color: var(--muted); white-space: nowrap; letter-spacing: .04em; }
+
+  /* setup */
+  #panel { position: absolute; background: rgba(13,18,38,.86); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.45); padding: 28px 30px; }
+  #panel h3 { margin: 0 0 4px; font: 600 30px Fraunces; }
+  #panel .sub { font: 500 17px Inter; color: var(--muted); margin-bottom: 18px; }
+  #watch { font: 700 64px Mono; font-variant-numeric: tabular-nums; letter-spacing: -.02em; display: flex; align-items: baseline; gap: 14px; margin: 6px 0 18px; }
+  #watch small { font: 700 18px Inter; color: var(--navy); background: var(--gold); padding: 4px 10px; border-radius: 999px; letter-spacing: .04em; }
+  .step { display: flex; align-items: center; gap: 14px; padding: 13px 14px; border-radius: 12px; font: 600 21px Inter; color: var(--muted); margin-bottom: 6px; }
+  .step .box { width: 30px; height: 30px; border-radius: 9px; border: 2px solid rgba(255,255,255,.25); display: grid; place-items: center; flex: none; font: 700 15px Inter; }
+  .step.active { background: rgba(108,123,255,.16); color: var(--white); }
+  .step.active .box { border-color: var(--indigo); color: var(--indigo); }
+  .step.done { color: var(--white); } .step.done .box { background: var(--green); border-color: var(--green); color: #0b2a1d; }
+  #stepLabel { position: absolute; font: 700 20px Inter; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
+  #stepLabel span { color: var(--white); letter-spacing: .02em; text-transform: none; font: 600 30px Fraunces; margin-left: 14px; }
+  #stamp { position: absolute; border: 6px solid var(--gold); color: var(--gold); border-radius: 18px; padding: 18px 34px; font: 800 54px Inter; text-transform: uppercase; letter-spacing: .04em; text-align: center; line-height: 1.05; background: rgba(14,19,38,.85); box-shadow: 0 30px 90px rgba(0,0,0,.6); }
+  #stamp small { display: block; font: 700 24px Inter; letter-spacing: .2em; margin-top: 8px; color: var(--white); }
+
+  /* captions */
+  #captions { position: absolute; left: 0; right: 0; display: flex; justify-content: center; }
+  #cap { display: inline-flex; align-items: center; gap: 16px; background: rgba(8,11,24,.82); border: 1px solid rgba(255,255,255,.1); border-radius: 18px; color: #fff; font-weight: 600; letter-spacing: -.005em; box-shadow: 0 14px 40px rgba(0,0,0,.4); text-align: center; }
+  #cap i { width: 12px; height: 12px; border-radius: 50%; display: block; flex: none; }
+  #cap i.F { background: var(--gold); } #cap i.M { background: var(--indigo); }
+
+  /* outro */
+  .tile { position: absolute; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.5); background: #f5f3ee; backface-visibility: hidden; }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile b { position: absolute; left: 10px; bottom: 10px; font: 700 15px Inter; background: rgba(14,19,38,.88); padding: 6px 10px; border-radius: 8px; color: #fff; }
+  #endCard { position: absolute; inset: 0; }
+  #endUrl { position: absolute; left: 0; right: 0; text-align: center; font: 600 30px Mono; color: var(--white); }
+  #qr { position: absolute; background: #fff; border-radius: 14px; padding: 10px; }
+  #qr svg, #qr img { width: 100%; height: 100%; display: block; }
+  #providers { position: absolute; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  #providers span { font: 700 22px Inter; padding: 10px 18px; border-radius: 999px; background: rgba(14,19,38,.92); border: 1.5px solid rgba(108,123,255,.6); color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  #providers span.free { border-color: rgba(240,189,79,.8); color: var(--gold); }
+
+  /* illustrated screens (inside the window, in 1920×1140 space) */
+  .scr { background: #f6f7fb; color: #1f2430; font-family: Inter; }
+  .term { background: #0f1220; color: #d7dcf2; font: 30px/1.55 Mono; padding: 60px 70px; white-space: pre; }
+  .term .p { color: #6fe3a4; } .term .d { color: #7c84a8; } .term .y { color: var(--gold); } .term .b { color: #8ea0ff; font-weight: 700; }
+  .term .bar { display: inline-block; height: 22px; width: 600px; background: #22273d; border-radius: 6px; vertical-align: middle; overflow: hidden; } .term .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #6c7bff, #8ea0ff); }
+  .speed { position: absolute; right: 60px; top: 50px; font: 800 34px Inter; color: #0e1326; background: var(--gold); padding: 8px 18px; border-radius: 999px; }
+  .page { position: absolute; inset: 0; background: #f6f7fb; }
+  .page .top { height: 92px; background: #fff; border-bottom: 1px solid #e3e5ee; display: flex; align-items: center; padding: 0 56px; font: 600 26px Inter; color: #2b3040; gap: 18px; }
+  .page .crumb { color: #7a8094; font-weight: 500; }
+  .page .main { padding: 50px 120px; }
+  .page h1 { font: 700 46px Inter; margin: 0 0 10px; color: #1f2430; } .page p.lead { font: 400 26px Inter; color: #5a6075; margin: 0 0 34px; }
+  .fld { margin-bottom: 26px; } .fld label { display: block; font: 600 22px Inter; margin-bottom: 10px; color: #2b3040; }
+  .fld .in { height: 62px; border: 2px solid #d6d9e4; border-radius: 12px; background: #fff; display: flex; align-items: center; padding: 0 20px; font: 24px Inter; color: #2b3040; }
+  .fld .in.focus { border-color: #6c7bff; box-shadow: 0 0 0 5px rgba(108,123,255,.18); }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 62px; padding: 0 30px; border-radius: 12px; font: 700 24px Inter; background: #1f8f5f; color: #fff; }
+  .btn.blue { background: #3d5bd9; } .btn.ghost { background: #fff; color: #2b3040; border: 2px solid #d6d9e4; }
+  .tokenbox { margin-top: 30px; border: 2px solid #9fd9bd; background: #effaf4; border-radius: 14px; padding: 24px 28px; font: 600 24px Mono; color: #155c3b; display: flex; justify-content: space-between; align-items: center; }
+  .sheet, .perm { color: #1f2430; }
+  .perm { display: flex; justify-content: space-between; border: 2px solid #e3e5ee; border-radius: 12px; padding: 18px 22px; font: 500 23px Inter; background: #fff; margin-bottom: 10px; }
+  .perm b { color: #1f8f5f; }
+  .cursor { position: absolute; width: 34px; height: 38px; z-index: 9; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+  .repo .files { border: 2px solid #e3e5ee; border-radius: 14px; overflow: hidden; background: #fff; }
+  .repo .files .hd { background: #f3f4f8; padding: 18px 24px; font: 600 22px Inter; display: flex; justify-content: space-between; color: #2b3040; border-bottom: 1px solid #e3e5ee; }
+  .repo .files .row { display: grid; grid-template-columns: 34px 1fr 1.2fr 160px; gap: 10px; padding: 14px 24px; font: 22px Inter; border-top: 1px solid #eef0f5; color: #2b3040; align-items: center; }
+  .repo .files .row .m { color: #7a8094; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .repo .files .row .w { color: #7a8094; text-align: right; }
+  .repo .md { border: 2px solid #e3e5ee; border-radius: 14px; background: #fff; padding: 26px 34px; font: 23px/1.55 Mono; color: #2b3040; white-space: pre-wrap; }
+  .sheet { position: absolute; background: #fff; border-radius: 30px; box-shadow: 0 30px 80px rgba(0,0,0,.35); }
+  .ipad { position: absolute; background: #111; border-radius: 48px; padding: 26px; box-shadow: 0 30px 90px rgba(0,0,0,.5); }
+  .ipad .scrn { position: relative; width: 100%; height: 100%; border-radius: 26px; overflow: hidden; background: #f5f3ee; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="layer"><div class="blob" id="blob1"></div><div class="blob" id="blob2"></div><div class="blob" id="blob3"></div><canvas id="grain"></canvas></div>
+  <div id="mess" class="layer"></div>
+  <div id="counters"><span>Tabs <b id="cTabs">0</b></span><span>Apps <b id="cApps">0</b></span><span>Screenshots <b id="cShots">0</b></span></div>
+  <div id="logo" class="layer"><div class="ring" id="ring1"></div><div id="logoMark"><span>A</span></div><div id="logoWord">Axiom</div><div id="tagline"></div></div>
+  <div id="win"><div id="winframe"><div id="winbar"><div class="dots"><i></i><i></i><i></i></div><div class="url"><span class="lock">●</span><span id="urlText">localhost:5173</span><span class="install hide" id="urlInstall">⊕</span></div></div><div id="wincontent"><img id="clipimg" alt=""><div id="html"></div></div></div><div id="segLabel" class="hide"><i></i><span></span></div><div id="illus" class="hide">Illustration</div></div>
+  <div id="titles" class="layer"><div class="kicker" id="kicker"></div><div class="title" id="title"></div></div>
+  <svg id="lasso" class="layer"><path id="lassoPath"/></svg>
+  <div id="hud" class="layer"><div id="chip">$0 / month</div><div id="featLabel"></div><div id="ringBox"><svg><circle id="ringBg"/><circle id="ringFg"/></svg><div class="num" id="ringNum"></div><div class="cap" id="ringCap">90-second tour</div></div><div id="stepLabel"></div></div>
+  <div id="panel"><h3>Set it up</h3><div class="sub">Typical first-time setup, start to finish</div><div id="watch"><span id="watchT">0:00</span><small id="watchFF" class="hide">×20</small></div><div id="steps"></div></div>
+  <div id="providers" class="hide"></div>
+  <div id="outro" class="layer"></div>
+  <div id="endCard" class="hide"><div id="endUrl">github.com/preetsingh-007/axiom</div><div id="qr"></div></div>
+  <div id="stamp" class="hide">Done in under<br>3 minutes<small>free · open source · yours</small></div>
+  <div id="captions"><div id="cap"><i></i><span></span></div></div>
+</div>
+<script src="/compositor/compositor.js"></script>
+</body>
+</html>
