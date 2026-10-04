@@ -78,11 +78,29 @@ function isRotated(it: TextItem): boolean {
   return Math.min(norm, 360 - norm) > 10;
 }
 
-function cleanItems(items: TextItem[], keepRotated: boolean): { main: TextItem[]; rotated: TextItem[] } {
+function cleanItems(items: TextItem[], keepRotated: boolean, foldSpaces = true): { main: TextItem[]; rotated: TextItem[] } {
   const main: TextItem[] = [];
   const rotated: TextItem[] = [];
   for (const it of items) {
-    if (!it.str || !it.str.trim()) continue;
+    if (!it.str) continue;
+    if (!it.str.trim()) {
+      // Some producers (Chrome/Skia, justified text) emit each inter-word space as its own item.
+      // Fold it into the word before it, so wide justified spacing doesn't look like a gutter.
+      const prev = main[main.length - 1];
+      if (
+        foldSpaces &&
+        prev &&
+        !prev.angle &&
+        !it.angle &&
+        Math.abs(prev.y - it.y) < prev.h * 0.3 &&
+        it.x >= right(prev) - prev.fontSize * 0.2 &&
+        it.x - right(prev) < prev.fontSize * 0.5 &&
+        it.w <= prev.fontSize * 2
+      ) {
+        main[main.length - 1] = { ...prev, str: prev.str.endsWith(' ') ? prev.str : prev.str + ' ', w: Math.max(prev.w, right(it) - prev.x) };
+      }
+      continue;
+    }
     if (!(it.w >= 0) || !(it.h > 0) || !Number.isFinite(it.x) || !Number.isFinite(it.y)) continue;
     if (isRotated(it)) {
       if (keepRotated) rotated.push(it);
@@ -704,7 +722,8 @@ export function itemsToLines(items: TextItem[], opts: Pick<ExtractOptions, 'body
 
 /** LaTeX for a math selection: lines become rows, scripts become ^{}/_{}; trailing "(n)" becomes \tag{n}. */
 export function itemsToLatex(items: TextItem[]): string {
-  const { main } = cleanItems(items, false);
+  // a math selection is a single block, so no gutter detection: keep the original item boxes
+  const { main } = cleanItems(items, false, false);
   if (!main.length) return '';
   const lines = groupLines(main).map(buildLine);
   const rows: string[] = [];

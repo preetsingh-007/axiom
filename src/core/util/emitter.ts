@@ -34,3 +34,30 @@ export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: numb
   };
   return d;
 }
+
+/**
+ * Wraps an async job so runs never overlap: a call while one is running queues exactly one
+ * follow-up run (later calls coalesce into it). Resolves when the caller's run has finished.
+ */
+export function serialized(fn: () => Promise<void>): () => Promise<void> {
+  let running: Promise<void> | null = null;
+  let queued: Promise<void> | null = null;
+  const run = (): Promise<void> => {
+    const p: Promise<void> = fn().finally(() => {
+      if (running === p) running = null;
+    });
+    running = p;
+    return p;
+  };
+  return () => {
+    if (queued) return queued;
+    if (!running) return run();
+    queued = running
+      .catch(() => {})
+      .then(() => {
+        queued = null;
+        return run();
+      });
+    return queued;
+  };
+}

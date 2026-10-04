@@ -33,3 +33,8 @@ export async function loadAIConfig(vault: Vault): Promise<AIConfig> {
 export async function saveAIConfig(vault: Vault, config: AIConfig): Promise<void> {
   await vault.setLocal(AI_CONFIG_KEY, normalizeAIConfig(config));
 }
+
+/** True when a real language model is set up (not just the offline heuristics or the manual bridge). */
+export function hasModelProvider(cfg: AIConfig): boolean {
+  return !!(cfg.gemini?.apiKey?.trim() || cfg.anthropic?.apiKey?.trim() || (cfg.openai?.baseUrl && cfg.openai.model) || cfg.webllm?.enabled);
+}

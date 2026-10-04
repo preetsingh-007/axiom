@@ -321,3 +321,29 @@
   color: var(--text);
   opacity: 1;
 }
+.set-probe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font: 13px var(--font-ui);
+}
+.set-probe li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.set-probe .set-dot {
+  flex: none;
+  align-self: center;
+}
+.set-probe b {
+  color: var(--text);
+  font-weight: 600;
+}

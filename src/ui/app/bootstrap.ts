@@ -2,11 +2,11 @@ import { Vault } from '../../core/vault';
 import { SyncManager } from '../../core/sync/manager';
 import { BroadcastTransport } from '../../core/sync/broadcast';
 import { GraphIndex } from '../../core/graph/index';
-import { AIRouter, loadAIConfig } from '../../core/ai';
+import { AIRouter, loadAIConfig, hasModelProvider } from '../../core/ai';
 import type { AIConfig } from '../../core/ai/types';
 import { syncCards } from '../../core/srs';
 import { uid } from '../../core/util/ids';
-import { debounce } from '../../core/util/emitter';
+import { debounce, serialized } from '../../core/util/emitter';
 import { SyncController } from './syncController';
 import { seedWelcome } from './welcome';
 import type { Services } from './services';
@@ -91,18 +91,22 @@ export async function bootstrap(): Promise<AppServices> {
   // Index in the background; the UI renders immediately and refines as the index fills.
   const indexReady = graph.init().catch((e) => console.error('[axiom] index init failed', e));
 
-  // Flashcards follow #flashcard tags on Desk pages.
-  const refreshCards = debounce(async () => {
-    try {
-      const sources = await graph.flashcardBlocks();
-      await syncCards(vault, sources);
-    } catch (e) {
-      console.warn('[axiom] card sync failed', e);
-    }
-  }, 800);
+  // Flashcards follow #flashcard tags on Desk pages. With a model provider set up, the AI writes
+  // the cloze deletions (falling back to heuristics on any failure); runs never overlap.
   void indexReady.then(() => {
+    const refreshCards = serialized(async () => {
+      try {
+        const sources = await graph.flashcardBlocks();
+        await syncCards(vault, sources, hasModelProvider(aiConfig.current) ? { ai } : {});
+      } catch (e) {
+        console.warn('[axiom] card sync failed', e);
+      }
+    });
+    // wait for a longer pause when each run may call the network
+    const schedule = debounce(() => refreshCards(), 800);
+    const scheduleAI = debounce(() => refreshCards(), 2500);
     refreshCards();
-    graph.onChange.on(() => refreshCards());
+    graph.onChange.on(() => (hasModelProvider(aiConfig.current) ? scheduleAI() : schedule()));
   });
 
   startMaintenance(services);

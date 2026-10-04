@@ -9,7 +9,7 @@ import { suggestGhostTags } from '../../core/graph/ghost';
 import { getServicesUnsafe } from '../app/servicesRef';
 import type { AppServices } from '../app/bootstrap';
 import { useUI } from '../app/store';
-import type { AIConfig } from '../../core/ai/types';
+import { hasModelProvider } from '../../core/ai/config';
 import { renderSlideToCanvas } from './pptx/PptxSlideView';
 
 interface ImportProgress {
@@ -151,10 +151,6 @@ async function importOne(file: File): Promise<string | null> {
   vault.putSource(meta);
   void enrich(id, a.sampleText);
   return id;
-}
-
-function hasModelProvider(cfg: AIConfig): boolean {
-  return !!(cfg.gemini?.apiKey || cfg.anthropic?.apiKey || (cfg.openai?.baseUrl && cfg.openai.model) || cfg.webllm?.enabled);
 }
 
 /** Background enrichment: ghost tags from the user's graph (+AI) and Crossref metadata. */

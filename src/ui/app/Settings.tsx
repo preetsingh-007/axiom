@@ -1,12 +1,12 @@
 import { useEffect, useReducer, useState, type ReactNode } from 'react';
-import { RefreshCw, Copy, KeyRound, Link2, Cloud, Sparkles, Palette, Database, BookMarked, Layers, Download, Check, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Copy, KeyRound, Link2, Cloud, Sparkles, Palette, Database, BookMarked, Layers, Download, Check, AlertTriangle, Zap } from 'lucide-react';
 import { useServices } from './services';
 import type { AppServices } from './bootstrap';
 import { useUI, type Theme } from './store';
 import { generateSyncSecret } from '../../core/sync/crypto';
 import { buildSyncCode, buildJoinUrl, parseSyncCode, applyJoinInfo, type SyncConfig, type GitConfig } from '../../core/sync/config';
 import { copyText } from '../desk/dragout';
-import { ALL_PROVIDERS, saveAIConfig, hasWebGPU, OPENAI_PRESETS, DEFAULT_GEMINI_MODEL, DEFAULT_ANTHROPIC_MODEL, DEFAULT_WEBLLM_MODEL } from '../../core/ai';
+import { ALL_PROVIDERS, saveAIConfig, hasWebGPU, OPENAI_PRESETS, DEFAULT_GEMINI_MODEL, DEFAULT_ANTHROPIC_MODEL, DEFAULT_WEBLLM_MODEL, probeProviders, PROBE_PROVIDERS, type ProbeResult } from '../../core/ai';
 import type { AIConfig, ProviderId } from '../../core/ai/types';
 import { ZoteroSettings } from './ZoteroSettings';
 import { exportMarkdownMirror } from './syncController';
@@ -217,6 +217,13 @@ function AISettings() {
     toast({ message: 'AI settings saved', kind: 'success' });
   };
   const order = [...cfg.order, ...ALL_PROVIDERS.filter((p) => !cfg.order.includes(p))];
+  const [probe, setProbe] = useState<ProbeResult[] | 'running' | null>(null);
+  const testable = PROBE_PROVIDERS.some((id) => (id === 'openai' ? cfg.openai?.baseUrl && cfg.openai.model : cfg[id]?.apiKey?.trim()));
+  const test = async () => {
+    setProbe('running');
+    const res = await probeProviders(cfg).catch((e) => [{ provider: 'gemini' as const, label: 'AI', ok: false, ms: 0, detail: String(e?.message ?? e) }]);
+    setProbe(res);
+  };
   return (
     <Section id="ai" icon={<Sparkles size={18} />} title="AI (zero cost)" desc="Handwriting & math recognition, ghost tags and cloze cards. Axiom tries providers in this order and falls back to built-in heuristics. Keys never leave this device except to call the provider you chose.">
       <ol className="set-providers">
@@ -292,7 +299,21 @@ function AISettings() {
         <button className="ui-btn primary" disabled={!dirty} onClick={save}>
           <Check size={14} /> Save
         </button>
+        <button className="ui-btn" disabled={!testable || probe === 'running'} onClick={test} title={testable ? 'Send a tiny request to each configured provider' : 'Add a key or endpoint first'}>
+          <Zap size={14} /> {probe === 'running' ? 'Testing…' : 'Test'}
+        </button>
       </div>
+      {Array.isArray(probe) && (
+        <ul className="set-probe" aria-live="polite">
+          {probe.map((r) => (
+            <li key={r.provider} className={r.ok ? 'ok' : 'bad'}>
+              <span className={`set-dot ${r.ok ? 'ok' : 'bad'}`} />
+              <b>{r.label}</b>
+              {r.ok ? ` responded in ${(r.ms / 1000).toFixed(1)} s` : ` failed: ${r.detail}`}
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

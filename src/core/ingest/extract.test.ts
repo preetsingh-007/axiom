@@ -122,6 +122,29 @@ describe('itemsToMarkdown — layout', () => {
     expect(itemsToMarkdown(items)).toBe('The quick brown fox');
   });
 
+  it('does not mistake wide justified word spacing (explicit space items) for column gutters', () => {
+    // Chrome-printed PDFs: a justified line is drawn word by word, each gap a separate ' ' item
+    const words = (line: string, x: number, y: number, gap: number) => {
+      const out: TextItem[] = [];
+      for (const w of line.split(' ')) {
+        const it = item(w, x, y);
+        out.push(it, item(' ', x + it.w, y, 10, { w: gap }));
+        x += it.w + gap;
+      }
+      return out.slice(0, -1);
+    };
+    const items = [
+      item('make this adjustment explicit by following', LEFT, 120),
+      ...words('parameters. Their appeal is generality:', LEFT, 132, 9),
+      ...words('they handle continuous actions,', LEFT, 144, 12),
+      ...column(['Conflict-free replicated data types provide strong', 'eventual consistency without a coordinator.'], RIGHT, 120),
+    ];
+    const md = itemsToMarkdown(items);
+    expect(md).toContain('explicit by following parameters. Their appeal is generality: they handle continuous actions,');
+    expect(md).not.toMatch(/Their\n/);
+    expect(md.indexOf('Conflict-free')).toBeGreaterThan(md.indexOf('actions,'));
+  });
+
   it('breaks paragraphs on first-line indentation', () => {
     const items = [
       ...column(['This paragraph has two lines of text that', 'fill the column to its right margin edge.'], 72, 100),

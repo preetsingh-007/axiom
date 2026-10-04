@@ -2,7 +2,8 @@
 export type * from './types';
 export * from './errors';
 export { AIRouter, DEFAULT_TIMEOUTS, type AIRouterOptions } from './router';
-export { AI_CONFIG_KEY, ALL_PROVIDERS, DEFAULT_AI_CONFIG, loadAIConfig, saveAIConfig, normalizeAIConfig } from './config';
+export { AI_CONFIG_KEY, ALL_PROVIDERS, DEFAULT_AI_CONFIG, loadAIConfig, saveAIConfig, normalizeAIConfig, hasModelProvider } from './config';
+export { probeProviders, PROBE_PROVIDERS, type ProbeResult } from './probe';
 export { extractJSON } from './json';
 export * from './prompts';
 export { LocalProvider, summarizeText, extractKeyphrases, unicodeToLatex, splitSentences } from './local';

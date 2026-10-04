@@ -70,7 +70,10 @@ export function clozeRequest(text: string, max = 3): AIRequest {
     prompt:
       `Create up to ${max} cloze-deletion flashcards from the note below. Each card copies the note ` +
       `(or one self-contained sentence of it) verbatim, wrapping ONE key fact — a term, a definition, a ` +
-      `formula or a number — in {{c1::...}}. Keep inline math as $...$. Do not cloze trivial words.\n` +
+      `formula or a number — in {{c1::...}}. Every card MUST contain exactly one {{c1::...}}, and each ` +
+      `card hides a different fact. Keep inline math as $...$. Do not cloze trivial words.\n` +
+      `Example: for the note "Water boils at 100 °C at sea level." a good answer is ` +
+      `[{"text": "Water boils at {{c1::100 °C}} at sea level."}, {"text": "Water boils at 100 °C at {{c1::sea level}}."}]\n` +
       `Respond with a JSON array only: [{"text": "... {{c1::answer}} ..."}]\n\n"""\n${text}\n"""`,
     input: text,
     hints: { count: max },
