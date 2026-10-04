@@ -1,0 +1,87 @@
+1
+00:00:00,350 --> 00:00:05,739
+Twenty-three tabs. Four apps. A folder of screenshots you'll never find again.
+
+2
+00:00:06,995 --> 00:00:08,769
+Research shouldn't look like this.
+
+3
+00:00:09,277 --> 00:00:10,503
+Meet Axiom.
+
+4
+00:00:14,441 --> 00:00:24,256
+Paper on the left, thinking on the right. Lasso anything: text lands as Markdown, equations as LaTeX, and every snippet links back to its exact spot.
+
+5
+00:00:27,532 --> 00:00:34,370
+Need space? Spread two fingers and the page opens up. Sketch roughly, double-tap, and it snaps clean.
+
+6
+00:00:36,259 --> 00:00:42,421
+Type LaTeX and it renders live. Link ideas with double brackets, and backlinks build themselves.
+
+7
+00:00:44,986 --> 00:00:50,252
+Tag a note as a flashcard. Axiom schedules reviews right before you'd forget.
+
+8
+00:00:53,714 --> 00:00:59,700
+Search everything in a keystroke, see how ideas connect, and gather a whole topic into one Lens.
+
+9
+00:01:02,441 --> 00:01:09,527
+Write on your laptop and watch it appear on your tablet. Real-time, end-to-end encrypted, and fully offline.
+
+10
+00:01:13,350 --> 00:01:19,673
+Every page is plain Markdown in your own GitHub or GitLab repo. Full history. Zero lock-in.
+
+11
+00:01:22,077 --> 00:01:32,273
+And AI that reads your handwriting, transcribes equations, suggests tags and writes your flashcards. Free tiers, a local model, or no key at all.
+
+12
+00:01:36,400 --> 00:01:37,661
+That's Axiom.
+
+13
+00:01:38,561 --> 00:01:40,891
+Now let's set it up. Start the clock.
+
+14
+00:01:43,546 --> 00:01:47,750
+Clone, install, run. Three commands, Node 20 or newer.
+
+15
+00:01:52,273 --> 00:01:56,973
+Click Install, or Add to Home Screen on iPad. It works offline from here.
+
+16
+00:01:58,818 --> 00:02:02,318
+Drop in a PDF, EPUB or slide deck.
+
+17
+00:02:05,364 --> 00:02:10,762
+Start the relay, create a sync key, paste it on your other device. Connected and encrypted.
+
+18
+00:02:14,091 --> 00:02:22,277
+Now backup. Create a GitHub token for one repo, paste it into Settings, and every change is committed automatically.
+
+19
+00:02:25,000 --> 00:02:31,724
+Finally, AI. Grab a free Gemini key, paste it in, hit Test. Prefer local? Point it at Ollama.
+
+20
+00:02:35,409 --> 00:02:36,255
+Done.
+
+21
+00:02:41,873 --> 00:02:42,872
+Axiom.
+
+22
+00:02:42,922 --> 00:02:45,043
+Free. Open source. Yours.
