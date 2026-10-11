@@ -8,7 +8,9 @@ Axiom is a Progressive Web App (installable on desktop, iPad and Android) built 
   <img src="docs/media/writing.gif" width="880" alt="Writing in the Daily Stream: inline LaTeX, a wiki link, a /math display equation, then the linked concept page with live backlinks">
 </p>
 
-📖 **[User guide](docs/index.html)** — installation, a 5-minute tour, every feature, keyboard shortcuts and troubleshooting. Enable GitHub Pages (Settings → Pages → branch, folder `/docs`) to serve it at `https://<you>.github.io/axiom/`.
+🚀 **[Open Axiom](https://preetsingh-007.github.io/axiom/)** — runs in the browser; install it from there as an app.
+
+📖 **[User guide](https://preetsingh-007.github.io/axiom/guide/)** — installation, a 5-minute tour, every feature, keyboard shortcuts and troubleshooting.
 
 ## See it in action
 
@@ -68,6 +70,8 @@ Every animation below was recorded from the real production build by an automate
 
 ## Quick start
 
+Open **https://preetsingh-007.github.io/axiom/** and you're done. To work on the code:
+
 ```bash
 npm install
 npm run dev            # http://localhost:5173
@@ -75,6 +79,10 @@ npm run relay          # optional: local sync relay on :8787
 ```
 
 Production build (PWA, works offline): `npm run build && npm run preview`.
+
+### Deployment
+
+`.github/workflows/pages.yml` builds the app on every push to the default branch and publishes it to GitHub Pages at `https://<owner>.github.io/<repo>/`, with the user guide (`docs/`) at `…/guide/`. One-time setup: **Settings → Pages → Source → GitHub Actions**.
 
 ### Linking devices
 

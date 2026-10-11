@@ -27,7 +27,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,svg,woff2,mjs}'],
         globIgnores: ['pdfjs/**'],
-        navigateFallbackDenylist: [/^\/pdfjs\//],
+        // not anchored: the app may be served under a base path (e.g. /axiom/ on GitHub Pages);
+        // guide/ is the user guide, deployed next to the app by .github/workflows/pages.yml
+        navigateFallbackDenylist: [/\/pdfjs\//, /\/guide(\/|$)/],
         runtimeCaching: [
           {
             // pdf.js CMaps / standard fonts / wasm: fetched on demand, then available offline
