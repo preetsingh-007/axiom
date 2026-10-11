@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Generated from the same source as the hosted guide. Serve this folder with GitHub Pages (Settings → Pages → /docs). -->
+<!-- Generated from the same source as the hosted guide. Published with the app by .github/workflows/pages.yml at https://preetsingh-007.github.io/axiom/guide/. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -182,7 +182,8 @@
         <li>No subscription</li>
       </ul>
       <div class="cta">
-        <a class="btn primary" href="#install">Install Axiom</a>
+        <a class="btn primary" href="https://preetsingh-007.github.io/axiom/">Open Axiom</a>
+        <a class="btn" href="#install">Install it as an app</a>
         <a class="btn" href="#quickstart">Take the 5-minute tour</a>
       </div>
     </div>
@@ -223,9 +224,13 @@
   <main>
     <section id="install">
       <h2>Install</h2>
-      <p>Axiom is a Progressive Web App: one codebase that runs in the browser and installs like a native app on macOS, Windows, Linux, iPad and Android. You need <strong>Node.js 20 or newer</strong> to build it.</p>
+      <p>Axiom is a Progressive Web App: one codebase that runs in the browser and installs like a native app on macOS, Windows, Linux, iPad and Android.</p>
 
-      <h3>Run it on your computer</h3>
+      <h3>Use it in your browser</h3>
+      <p>Open <a href="https://preetsingh-007.github.io/axiom/">preetsingh-007.github.io/axiom</a>. There is nothing to download or run: your notes are stored in your browser and, if you turn on Git backup, in your own repository.</p>
+
+      <h3>Run it from source</h3>
+      <p>For development. You need <strong>Node.js 20 or newer</strong>.</p>
       <div class="code"><pre><span class="c"># get the code and its dependencies</span>
 git clone https://github.com/preetsingh-007/axiom.git
 cd axiom
@@ -235,7 +240,7 @@ npm install
 npm run dev</pre></div>
 
       <h3>Host your own copy</h3>
-      <p>The production build is a folder of static files. Put it on any static host: GitHub Pages, Netlify, Cloudflare Pages, or a home server.</p>
+      <p>Fork the repository, then set <em>Settings → Pages → Source</em> to <em>GitHub Actions</em>. Every push to the default branch publishes the app at <code>https://&lt;you&gt;.github.io/axiom/</code> and this guide at <code>…/axiom/guide/</code>. The production build is a folder of static files, so any other static host (Netlify, Cloudflare Pages, a home server) works too.</p>
       <div class="code"><pre>npm run build        <span class="c"># writes dist/</span>
 npm run preview      <span class="c"># try the build at http://localhost:4173</span></pre></div>
 
