@@ -12,6 +12,7 @@ import { seedWelcome } from './welcome';
 import type { Services } from './services';
 import { setServicesRef } from './servicesRef';
 import { startMaintenance } from './maintenance';
+import { requestPersistentStorage } from './storagePersistence';
 import { useUI } from './store';
 import { parseSyncCode, applyJoinInfo, loadSyncConfig, saveSyncConfig } from '../../core/sync/config';
 import * as blocksModule from '../../core/blocks';
@@ -48,6 +49,8 @@ export async function bootstrap(): Promise<AppServices> {
   const vaultName = params.get('vault') ?? 'axiom-default';
   const vault = await Vault.open(vaultName);
   const device = deviceInfo();
+  // the vault lives only in this browser until it syncs: ask the browser not to evict it
+  void requestPersistentStorage();
 
   const sync = new SyncManager(vault.store, device);
   sync.add(new BroadcastTransport(`axiom-sync-${vault.name}`));
