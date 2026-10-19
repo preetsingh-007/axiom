@@ -5,6 +5,7 @@
  */
 import {
   ConflictError,
+  FileTooLargeError,
   GitRemoteError,
   base64ToBytes,
   bytesToBase64,
@@ -218,10 +219,19 @@ export class GitHubRemote implements GitRemote {
     const concurrency = this.opts.concurrency ?? 4;
     const entries = await mapLimit(pending, concurrency, async (f) => {
       if (f.content === null) return { path: f.path, mode: '100644', type: 'blob', sha: null };
-      const b = await this.req<{ sha: string }>('POST', `${this.repoPath}/git/blobs`, {
-        content: bytesToBase64(f.content),
-        encoding: 'base64',
-      });
+      const b = await this.req<{ sha: string }>(
+        'POST',
+        `${this.repoPath}/git/blobs`,
+        { content: bytesToBase64(f.content), encoding: 'base64' },
+        [413, 422],
+      );
+      // "Sorry, your input was too large to process": GitHub caps the request body well below
+      // Git's 100 MB file limit (the base64 body is a third larger than the file).
+      if (b.status === 413 || b.status === 422) {
+        const msg = (b.data as { message?: string } | null)?.message ?? String(b.data).slice(0, 200);
+        if (b.status === 413 || /too large/i.test(msg)) throw new FileTooLargeError(f.path, b.status, msg);
+        throw new GitRemoteError(`GitHub POST ${this.repoPath}/git/blobs failed (${b.status}): ${msg}`, b.status);
+      }
       return { path: f.path, mode: '100644', type: 'blob', sha: b.data.sha };
     });
 

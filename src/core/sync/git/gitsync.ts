@@ -16,7 +16,16 @@
 import * as Y from 'yjs';
 import type { DocStore } from '../../storage/docstore';
 import { Emitter } from '../../util/emitter';
-import { ConflictError, GitRemoteError, gitBlobSha, mapLimit, type GitFileChange, type GitRemote } from './remote';
+import {
+  ConflictError,
+  FileTooLargeError,
+  GitRemoteError,
+  gitBlobSha,
+  mapLimit,
+  type GitFileChange,
+  type GitHead,
+  type GitRemote,
+} from './remote';
 
 export const GIT_TRANSPORT = 'git';
 export const VAULT_FORMAT = 1;
@@ -76,6 +85,8 @@ export interface GitSyncStatus {
   retryAt?: number;
   /** local changes not yet committed */
   dirty: boolean;
+  /** local files never uploaded because they exceed `maxBytes` or the host refused them as too large */
+  skippedFiles?: number;
   headSha?: string | null;
 }
 
@@ -478,16 +489,23 @@ export class GitSync {
     const fileTypes: Record<string, string> = { ...st.fileTypes };
     const blobs = this.opts.blobs;
     const newTooBig: string[] = [];
+    const fileIds = new Map<string, string>(); // path → blob id of the files in this commit
+    let skippedFiles = 0;
     if (blobs) {
       const limit = blobs.maxBytes ?? 50 * 1024 * 1024;
       const tooBig = new Set(st.tooBig);
       for (const id of await blobs.list()) {
         const path = `${p}files/${encodePathSegment(id)}`;
-        if (st.paths[path] || tooBig.has(id)) continue;
+        if (st.paths[path]) continue;
+        if (tooBig.has(id)) {
+          skippedFiles++;
+          continue;
+        }
         const blob = await blobs.get(id);
         if (!blob) continue;
         if (blob.size > limit) {
           newTooBig.push(id);
+          skippedFiles++;
           continue;
         }
         if (!budgetLeft(blob.size)) {
@@ -499,6 +517,7 @@ export class GitSync {
         bytes += content.length;
         newShas.set(path, await gitBlobSha(content));
         if (blob.type) fileTypes[id] = blob.type;
+        fileIds.set(path, id);
         filesPushed++;
       }
     }
@@ -558,14 +577,26 @@ export class GitSync {
     if (!changes.length) {
       finishContained();
       await this.save();
-      this.setStatus({ dirty: this.dirty.size > 0 });
+      this.setStatus({ dirty: this.dirty.size > 0, skippedFiles });
       return { committed: false, headSha: st.headSha, docsPushed: 0, filesPushed: 0, markdownWritten: 0, more: false };
     }
 
     const parts = [`${pushedDocs.length} doc${pushedDocs.length === 1 ? '' : 's'}`];
     if (filesPushed) parts.push(`${filesPushed} file${filesPushed === 1 ? '' : 's'}`);
     const message = `Axiom sync: ${parts.join(', ')}${this.opts.deviceName ? ` from ${this.opts.deviceName}` : ''}`;
-    const head = await remote.commit(changes, message, st.headSha);
+    let head: GitHead;
+    try {
+      head = await remote.commit(changes, message, st.headSha);
+    } catch (e) {
+      const id = e instanceof FileTooLargeError ? fileIds.get(e.path) : undefined;
+      if (!(e instanceof FileTooLargeError) || id === undefined) throw e;
+      // The host refuses this file: never try it again, and commit the rest without it.
+      // Terminates: every retry skips one more file.
+      console.warn('[axiom git] file too large for the remote, not syncing it:', e.path);
+      st.tooBig.push(id);
+      await this.save();
+      return this.doPush();
+    }
 
     // success: record what the remote now has
     st.headSha = head.commitSha;
@@ -581,7 +612,7 @@ export class GitSync {
     finishContained();
     if (more) this.fullScanNeeded = this.fullScanNeeded || scanWasFull;
     await this.save();
-    this.setStatus({ dirty: this.dirty.size > 0 || more, headSha: head.commitSha });
+    this.setStatus({ dirty: this.dirty.size > 0 || more, headSha: head.commitSha, skippedFiles });
     return { committed: true, headSha: head.commitSha, docsPushed: pushedDocs.length, filesPushed, markdownWritten, more };
   }
 

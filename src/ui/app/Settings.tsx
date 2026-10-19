@@ -109,6 +109,12 @@ function SyncSettings() {
           <AlertTriangle size={15} /> {st.git.lastError}
         </div>
       )}
+      {!!st.git?.skippedFiles && (
+        <div className="set-warn">
+          <AlertTriangle size={15} /> {st.git.skippedFiles} file{st.git.skippedFiles === 1 ? ' is' : 's are'} too large for your Git host and{' '}
+          {st.git.skippedFiles === 1 ? 'is' : 'are'} not backed up or synced to your other devices.
+        </div>
+      )}
 
       <h3 className="set-sub">
         <KeyRound size={15} /> Link devices

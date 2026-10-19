@@ -58,6 +58,18 @@ export class GitRemoteError extends Error {
   }
 }
 
+/** The host refused one file for its size. GitSync stops uploading that file and retries without it. */
+export class FileTooLargeError extends GitRemoteError {
+  constructor(
+    readonly path: string,
+    status: number,
+    detail = '',
+  ) {
+    super(`File too large for the Git host: ${path}${detail ? ` (${detail})` : ''}`, status);
+    this.name = 'FileTooLargeError';
+  }
+}
+
 const enc = new TextEncoder();
 
 /** Git's blob object id: SHA-1 over "blob <byteLength>\0" + content, hex. */

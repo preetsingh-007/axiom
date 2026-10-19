@@ -245,6 +245,26 @@ describe('GitSync', () => {
     expect(rb.push.filesPushed).toBe(0); // not re-uploaded by the downloader
   });
 
+  it('skips files the remote refuses as too large and commits the rest', async () => {
+    const remote = new MemoryGitRemote();
+    remote.maxFileBytes = 1000;
+    const a = await device(remote);
+    await a.blobs.put('b-small', new Blob([new Uint8Array([1, 2, 3])]));
+    await a.blobs.put('b-huge', new Blob([new Uint8Array(5000)]));
+    const r1 = await a.git.sync();
+    expect(r1.push.filesPushed).toBe(1);
+    expect(remote.snapshot().has('axiom/files/b-small')).toBe(true);
+    expect(remote.snapshot().has('axiom/files/b-huge')).toBe(false);
+    expect(a.git.status.skippedFiles).toBe(1);
+    expect(a.git.status.lastError).toBeUndefined();
+
+    const commits = remote.stats.commits;
+    const r2 = await a.git.sync(); // not retried
+    expect(r2.push.committed).toBe(false);
+    expect(remote.stats.commits).toBe(commits);
+    expect(a.git.status.skippedFiles).toBe(1);
+  });
+
   it('writes the markdown mirror and removes stale files', async () => {
     const remote = new MemoryGitRemote();
     let files: MarkdownFile[] = [
