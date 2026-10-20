@@ -9,6 +9,7 @@ import { blockActions } from '../blockActions';
 import { useYText } from '../../hooks/usePage';
 import { Transclusion } from './Transclusion';
 import { runSlash } from './slash';
+import { importImageBlocks } from './imageImport';
 
 /** Depth of nested transclusions (prevents infinite recursion A embeds B embeds A). */
 export const TranscludeDepth = createContext(0);
@@ -139,6 +140,7 @@ export const TextBlock = memo(function TextBlock({ block, id, readOnly }: { bloc
           setEditing(null);
           actions.insertAfter({ type: 'ink', height: 360 }, false);
         }}
+        onPasteImages={(files) => void importImageBlocks(api, id, files)}
       />
     );
   }

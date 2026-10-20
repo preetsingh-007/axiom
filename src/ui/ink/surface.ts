@@ -9,9 +9,14 @@
  *    needed; appended strokes (local or remote) are drawn incrementally;
  *  - wet layer (`desynchronized` 2D context): the in-progress stroke incl. predicted points,
  *    lasso path, eraser cursor, and the dragged selection (moved with a CSS transform).
+ *
+ * By default both canvases cover the whole block. In the zoomable focus view the surface can be
+ * many times larger than the screen, so `setViewport` limits the canvases to the visible part
+ * (they move with it and draw with an offset). Photos use `setFixedHeight` (no auto-grow).
+ * Typed labels (`labels` Y.Map) take part in lasso selection, move/scale and delete.
  */
-import type * as Y from 'yjs';
-import type { Beautified, Stroke } from '../../core/schema';
+import * as Y from 'yjs';
+import type { Beautified, InkLabel, Stroke } from '../../core/schema';
 import { INK_LOGICAL_WIDTH } from '../../core/schema';
 import { LOCAL_ORIGIN } from '../../core/storage/docstore';
 import {
@@ -19,6 +24,7 @@ import {
   bboxContains,
   inflateBBox,
   pathLength,
+  pointInPolygon,
   strokeBBox,
   strokeHitBySegment,
   strokeInPolygon,
@@ -35,7 +41,10 @@ import { uid } from '../../core/util/ids';
 import { ERASER_RADIUS, strokeWidthFor, useInkStore } from './inkStore';
 
 export interface InkSelection {
+  /** selected stroke ids */
   ids: string[];
+  /** selected typed labels */
+  labelIds?: string[];
   /** logical-space bounding box (includes stroke width and covered beautified items) */
   box: BBox;
 }
@@ -47,6 +56,8 @@ export interface SurfaceCallbacks {
   /** a tap that isn't part of a drawing gesture (pointer mode, read-only, lasso tap on empty space) */
   onTap(p: Pt, client: { x: number; y: number }): void;
   onCount(n: number): void;
+  /** a stroke drawn on this device was committed */
+  onStrokeCommitted?(stroke: Stroke): void;
 }
 
 /** Transform p' = origin + (p − origin)·s + (dx, dy) in logical units. */
@@ -84,6 +95,8 @@ const MAX_CANVAS_PIXELS = 16_000_000;
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_PX = 20;
 
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
 function scrollParent(el: HTMLElement | null): HTMLElement | null {
   let n = el?.parentElement ?? null;
   while (n) {
@@ -102,6 +115,8 @@ export class InkSurface {
   private covered = new Set<string>();
   private dragHidden = new Set<string>();
   private eraseHidden = new Set<string>();
+  /** strokes shown as a typed preview (pending conversion) */
+  private previewHidden = new Set<string>();
   private width = 0;
   private scale = 1;
   private dpr = 1;
@@ -126,6 +141,18 @@ export class InkSurface {
   private destroyed = false;
   private growPending = false;
   private cleanup: (() => void)[] = [];
+  /** photos: fixed logical height, never grows */
+  private fixedHeight: number | null = null;
+  /** focus view: visible part of the surface (CSS px, surface-local); null = whole surface */
+  private view: BBox | null = null;
+  /** where the canvases currently are (CSS px, surface-local) */
+  private vp: BBox = { x: 0, y: 0, w: 0, h: 0 };
+  private scroller: HTMLElement | null = null;
+  private penScale = 1;
+  private eraserScale = 1;
+  private labelsMap: Y.Map<InkLabel> | null = null;
+  private labels: InkLabel[] = [];
+  private unbindLabels: (() => void) | null = null;
 
   constructor(
     private root: HTMLElement,
@@ -159,14 +186,39 @@ export class InkSurface {
   private bindBlock() {
     const onBlock = (ev: Y.YMapEvent<unknown>) => {
       if (ev.keysChanged.has('strokes')) this.bindStrokes();
+      if (ev.keysChanged.has('labels')) this.bindLabels();
       if (ev.keysChanged.has('beautified')) this.refreshCovered();
       if (ev.keysChanged.has('height')) this.applyHeight();
     };
     this.block.observe(onBlock);
     this.cleanup.push(() => this.block.unobserve(onBlock));
     this.bindStrokes();
+    this.bindLabels();
     this.refreshCovered();
     this.applyHeight();
+  }
+
+  private bindLabels() {
+    this.unbindLabels?.();
+    const m = (this.block.get('labels') as Y.Map<InkLabel> | undefined) ?? null;
+    this.labelsMap = m;
+    const refresh = () => {
+      this.labels = m ? [...m.values()] : [];
+      const sel = this.selection;
+      if (sel?.labelIds?.length) {
+        const alive = new Set(this.labels.map((l) => l.id));
+        const labelIds = sel.labelIds.filter((id) => alive.has(id));
+        if (labelIds.length !== sel.labelIds.length) this.setSelection(sel.ids.length || labelIds.length ? this.selectionFor(sel.ids, labelIds) : null);
+        else this.setSelection(this.selectionFor(sel.ids, labelIds));
+      }
+    };
+    refresh();
+    if (!m) {
+      this.unbindLabels = null;
+      return;
+    }
+    m.observe(refresh);
+    this.unbindLabels = () => m.unobserve(refresh);
   }
 
   private unbindStrokes: (() => void) | null = null;
@@ -190,12 +242,7 @@ export class InkSurface {
         (d.length === 1 && d[0].insert !== undefined && prevLen === 0) ||
         (d.length === 2 && d[0].retain === prevLen && d[1].insert !== undefined);
       if (appendOnly && !this.dirtyFull && this.committedCtx) {
-        renderStrokes(this.committedCtx, this.strokes.slice(prevLen), this.scale, this.dpr, {
-          cache: this.cache,
-          inkColor: this.inkColor,
-          hidden: this.hiddenSet(),
-          clear: false,
-        });
+        renderStrokes(this.committedCtx, this.strokes.slice(prevLen), this.scale, this.dpr, this.paintOpts({ hidden: this.hiddenSet(), clear: false }));
       } else {
         if (this.strokes.length < prevLen) this.cache.prune(new Set(this.strokes.map((s) => s.id)));
         this.invalidate();
@@ -203,7 +250,8 @@ export class InkSurface {
       if (this.selection) {
         const alive = new Set(this.strokes.map((s) => s.id));
         const ids = this.selection.ids.filter((id) => alive.has(id));
-        if (ids.length !== this.selection.ids.length) this.setSelection(ids.length ? this.selectionFor(ids) : null);
+        const labelIds = this.selection.labelIds ?? [];
+        if (ids.length !== this.selection.ids.length) this.setSelection(ids.length || labelIds.length ? this.selectionFor(ids, labelIds) : null);
       }
       this.cb.onCount(this.strokes.length);
     };
@@ -218,7 +266,7 @@ export class InkSurface {
   }
 
   private applyHeight() {
-    const h = Number(this.block.get('height')) || 300;
+    const h = this.fixedHeight ?? (Number(this.block.get('height')) || 300);
     this.logicalHeight = h;
     this.resize();
   }
@@ -227,6 +275,7 @@ export class InkSurface {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     this.unbindStrokes?.();
+    this.unbindLabels?.();
     for (const fn of this.cleanup) fn();
     this.cleanup = [];
   }
@@ -239,6 +288,40 @@ export class InkSurface {
   setMinHeight(h: number) {
     this.minHeight = h;
     this.resize();
+  }
+
+  /** Photos: the canvas has exactly this logical height and never grows (null = block height). */
+  setFixedHeight(h: number | null) {
+    if (h === this.fixedHeight) return;
+    this.fixedHeight = h && h > 0 ? h : null;
+    this.applyHeight();
+  }
+
+  /**
+   * Limits the canvases to the visible part of the surface (CSS px relative to the surface's
+   * top-left), or null for the whole surface.
+   */
+  setViewport(rect: BBox | null) {
+    const v = this.view;
+    if (!rect && !v) return;
+    if (rect && v && Math.abs(rect.x - v.x) < 0.5 && Math.abs(rect.y - v.y) < 0.5 && Math.abs(rect.w - v.w) < 0.5 && Math.abs(rect.h - v.h) < 0.5) return;
+    this.view = rect ? { ...rect } : null;
+    this.resize();
+  }
+
+  /** Element scrolled by one-finger panning (defaults to the nearest scrolling ancestor). */
+  setScroller(el: HTMLElement | null) {
+    this.scroller = el;
+  }
+
+  /**
+   * Zoom of the focus view: zoomed in, new strokes get finer (1/√zoom) and the eraser keeps
+   * its size on screen (1/zoom), so writing large while zoomed lands small and neat.
+   */
+  setZoom(z: number) {
+    const k = Math.max(1, z || 1);
+    this.penScale = 1 / Math.sqrt(k);
+    this.eraserScale = 1 / k;
   }
 
   /** Displayed height in logical units. */
@@ -261,8 +344,17 @@ export class InkSurface {
   private resize() {
     if (!this.width) return;
     this.scale = this.width / INK_LOGICAL_WIDTH;
-    const cssW = this.width;
-    const cssH = this.displayHeight * this.scale;
+    const fullW = this.width;
+    const fullH = this.displayHeight * this.scale;
+    let vp: BBox = { x: 0, y: 0, w: fullW, h: fullH };
+    if (this.view) {
+      const x = Math.max(0, Math.min(fullW, Math.floor(this.view.x)));
+      const y = Math.max(0, Math.min(fullH, Math.floor(this.view.y)));
+      vp = { x, y, w: Math.max(1, Math.min(fullW - x, Math.ceil(this.view.w) + 1)), h: Math.max(1, Math.min(fullH - y, Math.ceil(this.view.h) + 1)) };
+    }
+    this.vp = vp;
+    const cssW = vp.w;
+    const cssH = vp.h;
     const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     // keep backing stores within mobile canvas limits for very tall blocks
     this.dpr = Math.max(0.5, Math.min(rawDpr, Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, cssW * cssH))));
@@ -273,6 +365,13 @@ export class InkSurface {
       if (c.height !== h) c.height = h;
       c.style.width = `${cssW}px`;
       c.style.height = `${cssH}px`;
+      if (this.view) {
+        c.style.left = `${vp.x}px`;
+        c.style.top = `${vp.y}px`;
+      } else {
+        c.style.removeProperty('left');
+        c.style.removeProperty('top');
+      }
     }
     this.dirtyWet = true;
     this.invalidate();
@@ -294,14 +393,41 @@ export class InkSurface {
   }
 
   private hiddenSet(): Set<string> {
-    if (!this.dragHidden.size && !this.eraseHidden.size) return this.covered;
+    if (!this.dragHidden.size && !this.eraseHidden.size && !this.previewHidden.size) return this.covered;
     const s = new Set(this.covered);
     for (const id of this.dragHidden) s.add(id);
     for (const id of this.eraseHidden) s.add(id);
+    for (const id of this.previewHidden) s.add(id);
     return s;
   }
 
+  /** Hides strokes that are currently shown as a typed preview. */
+  setPreviewHidden(ids: Iterable<string>) {
+    const next = new Set(ids);
+    if (next.size === this.previewHidden.size && [...next].every((id) => this.previewHidden.has(id))) return;
+    this.previewHidden = next;
+    this.invalidate();
+  }
+
+  /** True while a pointer gesture (stroke, lasso, drag…) is in progress. */
+  get busy(): boolean {
+    return this.gesture !== null && this.gesture.kind !== 'pan';
+  }
+
   // ------------------------------------------------------------------ rendering
+
+  /** Render options mapping logical units onto the canvases' current position. */
+  private paintOpts(extra: { hidden?: ReadonlySet<string>; clear?: boolean } = {}) {
+    const ox = this.vp.x / this.scale;
+    const oy = this.vp.y / this.scale;
+    return {
+      cache: this.cache,
+      inkColor: this.inkColor,
+      ...extra,
+      offset: this.view ? { x: ox, y: oy } : undefined,
+      viewport: this.view ? { x: ox, y: oy, w: this.vp.w / this.scale, h: this.vp.h / this.scale } : undefined,
+    };
+  }
 
   private invalidate() {
     this.dirtyFull = true;
@@ -320,7 +446,7 @@ export class InkSurface {
     if (this.dirtyFull) {
       this.dirtyFull = false;
       if (this.committedCtx) {
-        renderStrokes(this.committedCtx, this.strokes, this.scale, this.dpr, { cache: this.cache, inkColor: this.inkColor, hidden: this.hiddenSet() });
+        renderStrokes(this.committedCtx, this.strokes, this.scale, this.dpr, this.paintOpts({ hidden: this.hiddenSet() }));
       }
     }
     if (this.pendingDragReset) {
@@ -355,7 +481,7 @@ export class InkSurface {
     this.clearWet();
     if (!g) return;
     const k = this.scale * this.dpr;
-    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.setTransform(k, 0, 0, k, -this.vp.x * this.dpr, -this.vp.y * this.dpr);
     if (g.kind === 'draw') {
       const outline = strokeOutline({ pts: g.pts, size: g.size, tool: g.tool }, { last: false, extra: g.predicted });
       if (!outline.length) return;
@@ -381,7 +507,7 @@ export class InkSurface {
       ctx.globalAlpha = 1;
     } else if (g.kind === 'erase' && g.last) {
       ctx.beginPath();
-      ctx.arc(g.last.x, g.last.y, ERASER_RADIUS, 0, Math.PI * 2);
+      ctx.arc(g.last.x, g.last.y, ERASER_RADIUS * this.eraserScale, 0, Math.PI * 2);
       ctx.lineWidth = 1 / this.scale;
       ctx.strokeStyle = this.inkColor;
       ctx.globalAlpha = 0.45;
@@ -465,7 +591,7 @@ export class InkSurface {
       if (useInkStore.getState().penDetected) {
         // palm rejection: fingers never draw once a pen is known; one (non-palm) finger pans the page
         if (e.width < 60 && e.height < 60) {
-          this.gesture = { kind: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY, scroller: scrollParent(this.root) };
+          this.gesture = { kind: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY, scroller: this.scroller ?? scrollParent(this.root) };
           this.gesturePointerType = 'touch';
         }
         return;
@@ -506,7 +632,7 @@ export class InkSurface {
         pts: [],
         predicted: [],
         color: eff === 'highlighter' ? store.highlighterColor : store.color,
-        size: strokeWidthFor(eff, store.sizeIndex),
+        size: Math.max(0.8, Math.round(strokeWidthFor(eff, store.sizeIndex) * this.penScale * 100) / 100),
         smoother: e.pointerType === 'pen' ? null : new PointSmoother(),
         pressure: real ? null : new PressureSimulator(),
         realPressure: real,
@@ -530,7 +656,7 @@ export class InkSurface {
     let { x, y } = this.toLogical(ev.clientX, ev.clientY);
     if (g.smoother) [x, y] = g.smoother.filter(x, y, ev.timeStamp);
     x = Math.max(0, Math.min(INK_LOGICAL_WIDTH, x));
-    y = Math.max(0, y);
+    y = Math.max(0, this.fixedHeight ? Math.min(this.fixedHeight, y) : y);
     const n = g.pts.length;
     if (n >= 3 && Math.abs(g.pts[n - 3] - x) < 0.25 && Math.abs(g.pts[n - 2] - y) < 0.25) return;
     const p = g.realPressure ? ev.pressure || 0.5 : g.pressure!.next(x, y, ev.timeStamp);
@@ -691,7 +817,7 @@ export class InkSurface {
   }
 
   private grow() {
-    if (this.growPending || this.readOnly) return;
+    if (this.growPending || this.readOnly || this.fixedHeight) return;
     this.growPending = true;
     // defer out of the pointer handler; height changes resize canvases
     queueMicrotask(() => {
@@ -708,27 +834,40 @@ export class InkSurface {
     const p = this.toLogical(e.clientX, e.clientY);
     const n = g.pts.length;
     if (Math.hypot(g.pts[n - 3] - p.x, g.pts[n - 2] - p.y) < 0.5) return;
-    g.pts.push(Math.max(0, Math.min(INK_LOGICAL_WIDTH, p.x)), Math.max(0, p.y), g.pts[n - 1]);
+    const y = this.fixedHeight ? Math.min(this.fixedHeight, p.y) : p.y;
+    g.pts.push(Math.max(0, Math.min(INK_LOGICAL_WIDTH, p.x)), Math.max(0, y), g.pts[n - 1]);
   }
 
   private commitStroke(g: DrawGesture) {
-    if (!this.arr || !g.pts.length) return;
+    if (!g.pts.length) return;
     let pts = quantizePoints(g.pts);
     if (pts.length === 3) pts = [...pts, pts[0] + 0.1, pts[1], pts[2]]; // a tap → dot
     const stroke: Stroke = { id: uid(10), pts, color: g.color, size: g.size, tool: g.tool };
     const arr = this.arr;
+    if (!arr) {
+      // first annotation on a photo: the strokes array is created on demand
+      this.transact(() => {
+        const created = new Y.Array<Stroke>();
+        created.push([stroke]);
+        this.block.set('strokes', created);
+      });
+      this.clearWet();
+      this.cb.onStrokeCommitted?.(stroke);
+      return;
+    }
     // committed layer draws the appended stroke synchronously in the observer
     this.transact(() => arr.push([stroke]));
     this.clearWet();
+    this.cb.onStrokeCommitted?.(stroke);
   }
 
   private eraseAt(g: Extract<Gesture, { kind: 'erase' }>, p: Pt) {
     const a = g.last ?? p;
     g.last = p;
     let changed = false;
-    const r = ERASER_RADIUS;
+    const r = ERASER_RADIUS * this.eraserScale;
     for (const s of this.strokes) {
-      if (g.erased.has(s.id) || this.covered.has(s.id)) continue;
+      if (g.erased.has(s.id) || this.covered.has(s.id) || this.previewHidden.has(s.id)) continue;
       if (strokeHitBySegment(s, a, p, r, this.cache.box(s))) {
         g.erased.add(s.id);
         this.eraseHidden.add(s.id);
@@ -745,41 +884,60 @@ export class InkSurface {
     this.invalidate();
   }
 
-  /** Deletes strokes (and their beautified items) in one transaction. */
-  deleteStrokes(ids: Set<string>) {
+  /** Deletes strokes (and their beautified items) and labels in one transaction. */
+  deleteStrokes(ids: Set<string>, labelIds: Iterable<string> = []) {
     const arr = this.arr;
+    const labels = [...labelIds];
+    if (labels.length && this.labelsMap) {
+      const m = this.labelsMap;
+      this.transact(() => {
+        for (const id of labels) m.delete(id);
+        if (arr && ids.size) this.deleteStrokeRuns(arr, ids);
+      });
+      return;
+    }
     if (!arr || !ids.size) return;
-    this.transact(() => {
-      const list = arr.toArray();
-      // delete contiguous runs from the end
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (!ids.has(list[i].id)) continue;
-        let j = i;
-        while (j - 1 >= 0 && ids.has(list[j - 1].id)) j--;
-        arr.delete(j, i - j + 1);
-        i = j;
-      }
-      const b = this.block.get('beautified') as Beautified | undefined;
-      if (b && b.items.some((it) => it.strokeIds.some((id) => ids.has(id)))) {
-        const nb = removeStrokesFromBeautified(b, ids);
-        if (nb) this.block.set('beautified', nb);
-        else this.block.delete('beautified');
-      }
-    });
+    this.transact(() => this.deleteStrokeRuns(arr, ids));
+  }
+
+  private deleteStrokeRuns(arr: Y.Array<Stroke>, ids: Set<string>) {
+    const list = arr.toArray();
+    // delete contiguous runs from the end
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (!ids.has(list[i].id)) continue;
+      let j = i;
+      while (j - 1 >= 0 && ids.has(list[j - 1].id)) j--;
+      arr.delete(j, i - j + 1);
+      i = j;
+    }
+    const b = this.block.get('beautified') as Beautified | undefined;
+    if (b && b.items.some((it) => it.strokeIds.some((id) => ids.has(id)))) {
+      const nb = removeStrokesFromBeautified(b, ids);
+      if (nb) this.block.set('beautified', nb);
+      else this.block.delete('beautified');
+    }
   }
 
   // ------------------------------------------------------------------ selection
 
-  private selectionFor(ids: string[]): InkSelection {
+  private selectionFor(ids: string[], labelIds: string[] = []): InkSelection {
     const set = new Set(ids);
     const sel = this.strokes.filter((s) => set.has(s.id));
     const maxSize = sel.reduce((a, s) => Math.max(a, s.size), 0);
-    let box = inflateBBox(strokesBBox(sel), maxSize / 2 + 4);
+    let box: BBox | null = sel.length ? inflateBBox(strokesBBox(sel), maxSize / 2 + 4) : null;
     const b = this.block.get('beautified') as Beautified | undefined;
-    if (b?.active) {
-      for (const it of b.items) if (it.strokeIds.length && it.strokeIds.every((id) => set.has(id))) box = unionBBox(box, inflateBBox(itemBBox(it), 4));
+    if (b?.active && sel.length) {
+      for (const it of b.items) if (it.strokeIds.length && it.strokeIds.every((id) => set.has(id))) box = unionBBox(box!, inflateBBox(itemBBox(it), 4));
     }
-    return { ids, box };
+    const lset = new Set(labelIds);
+    for (const l of this.labels) {
+      if (!lset.has(l.id)) continue;
+      const lb = inflateBBox({ x: l.x, y: l.y, w: l.w, h: l.h }, 4);
+      box = box ? unionBBox(box, lb) : lb;
+    }
+    const out: InkSelection = { ids, box: box ?? { x: 0, y: 0, w: 0, h: 0 } };
+    if (labelIds.length) out.labelIds = labelIds;
+    return out;
   }
 
   private setSelection(sel: InkSelection | null) {
@@ -787,9 +945,13 @@ export class InkSurface {
     this.cb.onSelection(sel);
   }
 
-  /** Selects the given strokes (programmatic). */
-  select(ids: string[]) {
-    this.setSelection(ids.length ? this.selectionFor(ids) : null);
+  /** Selects the given strokes and labels (programmatic). */
+  select(ids: string[], labelIds: string[] = []) {
+    this.setSelection(ids.length || labelIds.length ? this.selectionFor(ids, labelIds) : null);
+  }
+
+  getLabels(): readonly InkLabel[] {
+    return this.labels;
   }
 
   clearSelection() {
@@ -812,8 +974,9 @@ export class InkSurface {
     }
     const pb = bbox(poly);
     const ids = this.strokes.filter((s) => strokeInPolygon(s, poly, 0.6, pb)).map((s) => s.id);
-    this.setSelection(ids.length ? this.selectionFor(ids) : null);
-    if (ids.length) this.root.focus({ preventScroll: true });
+    const labelIds = this.labels.filter((l) => pointInPolygon({ x: l.x + l.w / 2, y: l.y + l.h / 2 }, poly)).map((l) => l.id);
+    this.setSelection(ids.length || labelIds.length ? this.selectionFor(ids, labelIds) : null);
+    if (ids.length || labelIds.length) this.root.focus({ preventScroll: true });
   }
 
   private handleSelectionTap(e: PointerEvent) {
@@ -834,13 +997,14 @@ export class InkSurface {
     for (const id of sel.ids) this.dragHidden.add(id);
     // committed layer without the selection, wet layer with it (then moved by CSS transform)
     if (this.committedCtx) {
-      renderStrokes(this.committedCtx, this.strokes, this.scale, this.dpr, { cache: this.cache, inkColor: this.inkColor, hidden: this.hiddenSet() });
+      renderStrokes(this.committedCtx, this.strokes, this.scale, this.dpr, this.paintOpts({ hidden: this.hiddenSet() }));
       this.dirtyFull = false;
     }
     if (this.wetCtx) {
       const ids = new Set(sel.ids);
       const moving = this.strokes.filter((s) => ids.has(s.id) && !this.covered.has(s.id));
-      renderStrokes(this.wetCtx, moving, this.scale, this.dpr, { cache: this.cache, inkColor: this.inkColor });
+      // the dragged strokes may leave the visible area: draw them all
+      renderStrokes(this.wetCtx, moving, this.scale, this.dpr, { ...this.paintOpts(), viewport: undefined });
     }
   }
 
@@ -852,7 +1016,7 @@ export class InkSurface {
       el.style.transform = transform;
     };
     const css = t ? `translate(${t.dx * sc}px, ${t.dy * sc}px) scale(${t.s})` : '';
-    setT(this.wet, t ? `${t.ox * sc}px ${t.oy * sc}px` : '', css);
+    setT(this.wet, t ? `${t.ox * sc - this.vp.x}px ${t.oy * sc - this.vp.y}px` : '', css);
     const selEl = this.root.querySelector<HTMLElement>('.ink-selection');
     if (selEl && this.selection) {
       const b = this.selection.box;
@@ -873,16 +1037,36 @@ export class InkSurface {
     const sel = this.selection;
     const arr = this.arr;
     this.dragHidden.clear();
-    if (!sel || !arr || (Math.abs(t.dx) < 0.05 && Math.abs(t.dy) < 0.05 && Math.abs(t.s - 1) < 1e-3)) {
+    if (!sel || (!arr && !sel.labelIds?.length) || (Math.abs(t.dx) < 0.05 && Math.abs(t.dy) < 0.05 && Math.abs(t.s - 1) < 1e-3)) {
       this.pendingDragReset = true;
       this.invalidate();
       return;
     }
     const ids = new Set(sel.ids);
+    const labelIds = new Set(sel.labelIds ?? []);
     let maxY = 0;
     this.transact(() => {
-      const list = arr.toArray();
-      for (let i = list.length - 1; i >= 0; i--) {
+      const m = this.labelsMap;
+      if (m && labelIds.size) {
+        const s = t.s;
+        for (const id of labelIds) {
+          const l = m.get(id);
+          if (!l) continue;
+          const next: InkLabel = {
+            ...l,
+            x: r1(t.ox + (l.x - t.ox) * s + t.dx),
+            y: r1(t.oy + (l.y - t.oy) * s + t.dy),
+            w: r1(l.w * s),
+            h: r1(l.h * s),
+            size: r1(l.size * s),
+          };
+          if (this.fixedHeight) next.y = Math.max(0, Math.min(this.fixedHeight - next.h, next.y));
+          maxY = Math.max(maxY, next.y + next.h);
+          m.set(id, next);
+        }
+      }
+      const list = arr ? arr.toArray() : [];
+      for (let i = list.length - 1; arr && i >= 0; i--) {
         if (!ids.has(list[i].id)) continue;
         const next = transformStroke(list[i], t);
         maxY = Math.max(maxY, strokeBBox(next).y + strokeBBox(next).h);
@@ -894,9 +1078,9 @@ export class InkSurface {
         const nb = transformBeautified(b, ids, t);
         if (nb) this.block.set('beautified', nb);
       }
-      if (maxY > this.displayHeight - GROW_MARGIN) this.block.set('height', Math.ceil(maxY + GROW_STEP));
+      if (!this.fixedHeight && maxY > this.displayHeight - GROW_MARGIN) this.block.set('height', Math.ceil(maxY + GROW_STEP));
     });
-    this.setSelection(this.selectionFor(sel.ids));
+    this.setSelection(this.selectionFor(sel.ids, sel.labelIds));
     this.pendingDragReset = true;
     this.invalidate();
   }

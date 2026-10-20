@@ -34,10 +34,23 @@ export interface InkState {
   highlighterPalette: string[];
   /** a stylus has been seen: fingers never draw (palm rejection) */
   penDetected: boolean;
+  /** handwriting is converted to typed previews automatically after a pause (this device) */
+  autoConvert: boolean;
+  setAutoConvert(v: boolean): void;
   setTool(tool: InkTool): void;
   setColor(color: string): void;
   setSizeIndex(i: number): void;
   setPenDetected(v: boolean): void;
+}
+
+const AUTO_KEY = 'axiom.ink.autoConvert';
+
+function loadAutoConvert(): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 export const useInkStore = create<InkState>((set, get) => ({
@@ -49,6 +62,15 @@ export const useInkStore = create<InkState>((set, get) => ({
   palette: INK_COLORS,
   highlighterPalette: HIGHLIGHTER_COLORS,
   penDetected: false,
+  autoConvert: loadAutoConvert(),
+  setAutoConvert: (v) => {
+    try {
+      localStorage.setItem(AUTO_KEY, v ? '1' : '0');
+    } catch {
+      /* private mode: keep it for this session */
+    }
+    set({ autoConvert: v });
+  },
   setTool: (tool) => set({ tool }),
   setColor: (color) => (get().tool === 'highlighter' ? set({ highlighterColor: color }) : set({ color })),
   setSizeIndex: (i) => {

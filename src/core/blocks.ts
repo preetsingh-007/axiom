@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { uid } from './util/ids';
-import type { Anchor, Beautified, BlockType, EmbedRef, ImageRef, Stroke } from './schema';
+import type { Anchor, Beautified, BlockType, EmbedRef, ImageRef, InkLabel, Stroke } from './schema';
 import { LOCAL_ORIGIN } from './storage/docstore';
 
 /**
@@ -11,9 +11,12 @@ import { LOCAL_ORIGIN } from './storage/docstore';
  * Block fields:
  *   id, type, createdAt
  *   text:    Y.Text            (text | math | code)
- *   strokes: Y.Array<Stroke>   (ink)
+ *   strokes: Y.Array<Stroke>   (ink; image: annotations drawn over the photo)
  *   height:  number            (ink; logical units, width = 1000)
+ *   labels:  Y.Map<InkLabel>   (ink | image: typed text placed on the canvas)
  *   image:   ImageRef          (image | slide)
+ *   displayWidth: number       (image: fraction of the column width, 0..1; absent = natural size)
+ *   annotationsHidden: boolean (image: annotations toggled off)
  *   anchor:  Anchor            (wormhole tether to a source location)
  *   beautified: Beautified     (ink)
  *   embed:   EmbedRef          (embed)
@@ -57,6 +60,10 @@ export interface NewBlock {
   embed?: EmbedRef;
   lang?: string;
   id?: string;
+  beautified?: Beautified;
+  labels?: InkLabel[];
+  displayWidth?: number;
+  annotationsHidden?: boolean;
 }
 
 function buildBlock(spec: NewBlock): { id: string; map: BlockMap } {
@@ -80,7 +87,20 @@ function buildBlock(spec: NewBlock): { id: string; map: BlockMap } {
     if (spec.strokes?.length) arr.push(spec.strokes);
     map.set('strokes', arr);
     map.set('height', spec.height ?? 300);
+  } else if (spec.strokes?.length) {
+    // annotations on a photo
+    const arr = new Y.Array<Stroke>();
+    arr.push(spec.strokes);
+    map.set('strokes', arr);
   }
+  if (spec.labels?.length) {
+    const labels = new Y.Map<InkLabel>();
+    for (const l of spec.labels) labels.set(l.id, l);
+    map.set('labels', labels);
+  }
+  if (spec.beautified) map.set('beautified', spec.beautified);
+  if (spec.displayWidth !== undefined) map.set('displayWidth', spec.displayWidth);
+  if (spec.annotationsHidden) map.set('annotationsHidden', true);
   if (spec.image) map.set('image', spec.image);
   if (spec.anchor) map.set('anchor', spec.anchor);
   if (spec.embed) map.set('embed', spec.embed);
@@ -185,6 +205,28 @@ export function blockEmbed(b: BlockMap): EmbedRef | undefined {
   return b.get('embed') as EmbedRef | undefined;
 }
 
+/** Typed labels on a whiteboard / photo (absent until the first one is added). */
+export function blockLabels(b: BlockMap): Y.Map<InkLabel> | undefined {
+  return b.get('labels') as Y.Map<InkLabel> | undefined;
+}
+
+/** Labels in reading order (top to bottom, then left to right). */
+export function blockLabelList(b: BlockMap): InkLabel[] {
+  const m = blockLabels(b);
+  if (!m) return [];
+  return sortLabels([...m.values()]);
+}
+
+export function sortLabels(labels: InkLabel[]): InkLabel[] {
+  return [...labels].sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id));
+}
+
+/** Image display width as a fraction of the column (undefined = natural size). */
+export function blockDisplayWidth(b: BlockMap): number | undefined {
+  const v = b.get('displayWidth');
+  return typeof v === 'number' && v > 0 ? Math.min(1, v) : undefined;
+}
+
 export function setBlockText(b: BlockMap, value: string, origin: unknown = LOCAL_ORIGIN) {
   const t = blockText(b);
   if (!t) return;
@@ -235,6 +277,9 @@ export interface BlockSnapshot {
   embed?: EmbedRef;
   lang?: string;
   createdAt?: number;
+  labels?: InkLabel[];
+  displayWidth?: number;
+  annotationsHidden?: boolean;
 }
 
 export function snapshotBlock(b: BlockMap): BlockSnapshot {
@@ -251,6 +296,28 @@ export function snapshotBlock(b: BlockMap): BlockSnapshot {
     embed: blockEmbed(b),
     lang: b.get('lang') as string | undefined,
     createdAt: b.get('createdAt') as number | undefined,
+    labels: blockLabels(b) ? blockLabelList(b) : undefined,
+    displayWidth: blockDisplayWidth(b),
+    annotationsHidden: b.get('annotationsHidden') === true ? true : undefined,
+  };
+}
+
+/** A block spec that recreates a snapshot (duplicate, move between pages, merge). */
+export function snapshotToNewBlock(b: BlockSnapshot, opts: { keepId?: boolean } = {}): NewBlock {
+  return {
+    id: opts.keepId ? b.id : undefined,
+    type: b.type,
+    text: b.text,
+    height: b.height,
+    strokes: b.strokes,
+    image: b.image,
+    anchor: b.anchor,
+    embed: b.embed,
+    lang: b.lang,
+    beautified: b.beautified,
+    labels: b.labels,
+    displayWidth: b.displayWidth,
+    annotationsHidden: b.annotationsHidden,
   };
 }
 

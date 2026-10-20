@@ -141,7 +141,10 @@ export interface EditorEnv {
   tagNames(): string[];
   openPage(title: string, opts?: { sideQuest?: boolean }): void;
   openBlockRef(blockId: string): void;
-  pickImage(): Promise<File | null>;
+  /** `camera`: open the device camera directly (phones/tablets) */
+  pickImage(opts?: { camera?: boolean }): Promise<File | null>;
+  /** several images at once from the photo library / files */
+  pickImages?(): Promise<File[]>;
 }
 
 export const EditorEnvContext = createContext<EditorEnv | null>(null);

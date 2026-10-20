@@ -6,7 +6,7 @@
  *                                  L lasso, V pointer (ignored while typing)
  */
 import { useEffect } from 'react';
-import { Eraser, Highlighter, Lasso, MousePointer2, PenLine, type LucideIcon } from 'lucide-react';
+import { Eraser, Highlighter, Lasso, MousePointer2, PenLine, ScanText, type LucideIcon } from 'lucide-react';
 import { CURRENT_INK } from '../../core/ink/render';
 import { PEN_SIZES, useInkStore, type InkTool } from './inkStore';
 import './ink.css';
@@ -68,6 +68,8 @@ export function InkToolbar({ className, orientation = 'horizontal' }: InkToolbar
   const setTool = useInkStore((s) => s.setTool);
   const setColor = useInkStore((s) => s.setColor);
   const setSizeIndex = useInkStore((s) => s.setSizeIndex);
+  const autoConvert = useInkStore((s) => s.autoConvert);
+  const setAutoConvert = useInkStore((s) => s.setAutoConvert);
 
   const isHl = tool === 'highlighter';
   const colors = isHl ? highlighterPalette : palette;
@@ -127,6 +129,18 @@ export function InkToolbar({ className, orientation = 'horizontal' }: InkToolbar
           </div>
         </>
       )}
+      <span className="ink-toolbar-sep" aria-hidden="true" />
+      <button
+        type="button"
+        className="ink-tool-btn"
+        aria-pressed={autoConvert}
+        aria-label="Convert handwriting to text automatically"
+        title={autoConvert ? 'Auto-convert handwriting: on (pause after writing to see a typed preview)' : 'Auto-convert handwriting: off'}
+        onClick={() => setAutoConvert(!autoConvert)}
+        data-ink-auto-convert
+      >
+        <ScanText size={17} aria-hidden="true" />
+      </button>
     </div>
   );
 }

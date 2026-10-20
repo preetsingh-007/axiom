@@ -77,6 +77,26 @@ export interface Beautified {
   createdAt: number;
 }
 
+/**
+ * Typed text placed on a whiteboard or photo: accepted handwriting that labels a drawing.
+ * Stored per block in `labels: Y.Map<InkLabel>` (keyed by id), in logical ink units.
+ */
+export interface InkLabel {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 'text' is Markdown-ish prose with inline $math$; 'latex' is display LaTeX */
+  kind: 'text' | 'latex';
+  content: string;
+  /** font size in logical units */
+  size: number;
+  /** hex colour or 'currentInk' */
+  color?: string;
+  createdAt: number;
+}
+
 export interface ImageRef {
   blobId: string;
   w: number;

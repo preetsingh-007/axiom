@@ -16,5 +16,5 @@ export const InkBlock = memo(function InkBlock({ block, readOnly }: { block: Blo
 /** Standalone SVG for drag-out / export of an ink block. */
 export function inkSvgForExport(b: BlockSnapshot): string {
   if (b.type !== 'ink' || !b.strokes) return '';
-  return inkToSvg(b.strokes, b.beautified, INK_LOGICAL_WIDTH, b.height ?? 300, { crop: true });
+  return inkToSvg(b.strokes, b.beautified, INK_LOGICAL_WIDTH, b.height ?? 300, { crop: true, labels: b.labels });
 }

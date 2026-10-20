@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { blockIds, blockPlainText, convertBlock, deleteBlock, getBlock, insertBlock, insertBlockAfter, insertBlocks, moveBlock, setBlockText, snapshotPage } from './blocks';
+import { blockDisplayWidth, blockIds, blockLabelList, blockPlainText, convertBlock, deleteBlock, getBlock, insertBlock, insertBlockAfter, insertBlocks, moveBlock, setBlockText, snapshotBlock, snapshotPage, snapshotToNewBlock } from './blocks';
+import type { InkLabel, Stroke } from './schema';
 
 function sync(a: Y.Doc, b: Y.Doc) {
   Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)));
@@ -72,5 +73,39 @@ describe('blocks', () => {
     ]);
     const x = insertBlock(doc, { type: 'ink', height: 200 }, 1);
     expect(blockIds(doc)).toEqual([a, x, b]);
+  });
+
+  it('snapshots round-trip photo size, annotations, labels and beautified state', () => {
+    const doc = new Y.Doc();
+    const stroke: Stroke = { id: 's', pts: [1, 2, 0.5, 3, 4, 0.5], color: '#e5484d', size: 3, tool: 'pen' };
+    const label: InkLabel = { id: 'L', x: 1, y: 2, w: 30, h: 10, kind: 'latex', content: 'x^2', size: 12, createdAt: 1 };
+    const [img, ink] = insertBlocks(doc, [
+      { type: 'image', image: { blobId: 'b', w: 400, h: 300 }, displayWidth: 0.5, strokes: [stroke], labels: [label], annotationsHidden: true },
+      { type: 'ink', height: 300, strokes: [stroke], beautified: { active: true, createdAt: 0, items: [] }, labels: [label] },
+    ]);
+    const snapImg = snapshotBlock(getBlock(doc, img)!);
+    expect(snapImg).toMatchObject({ displayWidth: 0.5, annotationsHidden: true, strokes: [stroke], labels: [label] });
+    const copy = new Y.Doc();
+    const [img2, ink2] = insertBlocks(copy, [snapshotToNewBlock(snapImg), snapshotToNewBlock(snapshotBlock(getBlock(doc, ink)!))]);
+    const b2 = getBlock(copy, img2)!;
+    expect(blockDisplayWidth(b2)).toBe(0.5);
+    expect(b2.get('annotationsHidden')).toBe(true);
+    expect(blockLabelList(b2)).toEqual([label]);
+    expect(snapshotBlock(b2).strokes).toEqual([stroke]);
+    const i2 = snapshotBlock(getBlock(copy, ink2)!);
+    expect(i2.beautified).toEqual({ active: true, createdAt: 0, items: [] });
+    expect(i2.labels).toEqual([label]);
+    expect(snapshotToNewBlock(snapImg, { keepId: true }).id).toBe(img);
+  });
+
+  it('plain image blocks stay as before (no annotation fields)', () => {
+    const doc = new Y.Doc();
+    const [img] = insertBlocks(doc, [{ type: 'image', image: { blobId: 'b', w: 4, h: 3 } }]);
+    const b = getBlock(doc, img)!;
+    expect([...b.keys()].sort()).toEqual(['createdAt', 'id', 'image', 'type']);
+    const snap = snapshotBlock(b);
+    expect(snap.displayWidth).toBeUndefined();
+    expect(snap.labels).toBeUndefined();
+    expect(snap.strokes).toBeUndefined();
   });
 });

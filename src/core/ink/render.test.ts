@@ -58,4 +58,14 @@ describe('svg sanitiser', () => {
     expect(sanitizeSvgFragment('<g><circle cx="1" cy="1" r="1"/>')).toBe('<g><circle cx="1" cy="1" r="1"/></g>');
     expect(sanitizeSvgFragment('</g></g><line x1="0" y1="0" x2="1" y2="1"/>')).toBe('<line x1="0" y1="0" x2="1" y2="1"/>');
   });
+
+  it('draws typed labels and crops to include them', () => {
+    const svg = inkToSvg([], null, 1000, 300, {
+      crop: true,
+      labels: [{ id: 'L', x: 100, y: 50, w: 80, h: 20, kind: 'text', content: 'a < b', size: 14, color: '#e5484d', createdAt: 0 }],
+    });
+    expect(svg).toContain('a &lt; b');
+    expect(svg).toContain('fill="#e5484d"');
+    expect(svg).toMatch(/viewBox="88 38 104 44"/);
+  });
 });

@@ -96,6 +96,22 @@ describe('GraphIndex', () => {
     expect(index.search('equat')).toHaveLength(1);
   });
 
+  it('indexes typed labels on whiteboards and photos (search and links)', async () => {
+    let p = '';
+    const { index } = await setup(async (v) => {
+      await addPage(v, 'Bellman equation', ['def'], { kind: 'concept' });
+      p = await addPage(v, 'Sketch', [
+        {
+          type: 'ink',
+          height: 300,
+          labels: [{ id: 'L', x: 0, y: 0, w: 10, h: 10, kind: 'text', content: 'value iteration via [[Bellman equation]]', size: 12, createdAt: 0 }],
+        },
+      ]);
+    });
+    expect(index.search('iteration')[0]).toMatchObject({ pageId: p });
+    expect(index.pagesLinkingTo('Bellman equation')).toContain(p);
+  });
+
   it('updates incrementally on edits, page changes and trash', async () => {
     let p = '';
     let q = '';

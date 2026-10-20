@@ -21,7 +21,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { id: 'math', label: 'Math block', detail: 'Display LaTeX equation', keywords: 'latex equation formula' },
   { id: 'ink', label: 'Whiteboard', detail: 'Space to write & draw', keywords: 'ink draw sketch canvas pen' },
   { id: 'code', label: 'Code', detail: 'Code block', keywords: 'snippet program' },
-  { id: 'image', label: 'Image', detail: 'Upload an image', keywords: 'picture figure photo' },
+  { id: 'image', label: 'Image', detail: 'Photo library or a file', keywords: 'picture figure photo upload gallery' },
+  { id: 'camera', label: 'Take photo', detail: 'Open the camera', keywords: 'camera picture photo snap capture' },
   { id: 'embed', label: 'Embed page', detail: 'Transclude another page', keywords: 'transclude include' },
   { id: 'flashcard', label: 'Flashcard', detail: 'Add this block to review', keywords: 'anki srs card cloze' },
   { id: 'cloze', label: 'Cloze deletion', detail: 'Insert {{c1::…}}', keywords: 'anki blank' },
@@ -45,6 +46,8 @@ export interface BlockEditorProps {
   onEscape?: () => void;
   onDoubleDollar?: () => void;
   onInsertWhiteboard?: () => void;
+  /** images pasted without accompanying text (screenshots, copied photos) */
+  onPasteImages?: (files: File[]) => void;
 }
 
 const highlight = HighlightStyle.define([
@@ -280,6 +283,18 @@ export function BlockEditor(props: BlockEditorProps) {
       theme,
       EditorView.contentAttributes.of({ 'aria-label': mode === 'math' ? 'LaTeX' : 'Block text', spellcheck: mode === 'text' ? 'true' : 'false', autocapitalize: 'sentences' }),
       EditorView.domEventHandlers({
+        paste: (e) => {
+          const handler = p().onPasteImages;
+          const dt = e.clipboardData;
+          if (!handler || !dt) return false;
+          // text wins: apps like Word also put a picture of the copied text on the clipboard
+          if (dt.getData('text/plain').trim()) return false;
+          const files = [...dt.files].filter((f) => f.type.startsWith('image/'));
+          if (!files.length) return false;
+          e.preventDefault();
+          handler(files);
+          return true;
+        },
         blur: (_e, view) => {
           // keep editing while interacting with the completion popup
           setTimeout(() => {

@@ -1,5 +1,5 @@
 import type { BlockSnapshot } from '../blocks';
-import type { Beautified, SourceMeta } from '../schema';
+import type { Beautified, InkLabel, SourceMeta } from '../schema';
 
 /**
  * Export / publication: converts blocks to Markdown and LaTeX so they can be dragged into
@@ -42,6 +42,23 @@ function beautifiedToMarkdown(b: Beautified): string {
   return parts.join('\n\n');
 }
 
+/** Typed labels on a whiteboard / photo, top to bottom. */
+function labelsToMarkdown(labels: InkLabel[] | undefined): string {
+  if (!labels?.length) return '';
+  return labels
+    .map((l) => (l.kind === 'latex' ? `$$\n${l.content}\n$$` : cleanMarkdown(l.content)))
+    .filter((t) => t.trim())
+    .join('\n\n');
+}
+
+function labelsToLatex(labels: InkLabel[] | undefined): string {
+  if (!labels?.length) return '';
+  return labels
+    .map((l) => (l.kind === 'latex' ? `\\[\n${l.content}\n\\]` : markdownToLatex(l.content)))
+    .filter((t) => t.trim())
+    .join('\n\n');
+}
+
 function citation(b: BlockSnapshot, ctx: ExportContext): string {
   if (!b.anchor || !ctx.source) return '';
   const src = ctx.source(b.anchor.sourceId);
@@ -63,12 +80,13 @@ export function blockToMarkdown(b: BlockSnapshot, ctx: ExportContext = {}): stri
     case 'slide': {
       const alt = b.image?.alt ?? b.text ?? 'figure';
       const url = b.image && ctx.imageUrl ? ctx.imageUrl(b.image.blobId) : 'figure.png';
-      return `![${alt}](${url})` + citation(b, ctx);
+      return [`![${alt}](${url})` + citation(b, ctx), labelsToMarkdown(b.labels)].filter(Boolean).join('\n\n');
     }
     case 'ink': {
       const beautified = b.beautified?.active ? beautifiedToMarkdown(b.beautified) : '';
+      const labels = labelsToMarkdown(b.labels);
       const svg = ctx.inkToSvg ? ctx.inkToSvg(b) : '';
-      return [beautified, svg].filter(Boolean).join('\n\n');
+      return [beautified, labels, svg].filter(Boolean).join('\n\n');
     }
     case 'embed':
       return b.embed ? `*(see: ${b.embed.pageId})*` : '';
@@ -236,16 +254,20 @@ export function blockToLatex(b: BlockSnapshot, ctx: ExportContext = {}): string 
     case 'code':
       return '\\begin{verbatim}\n' + b.text + '\n\\end{verbatim}';
     case 'image':
-    case 'slide':
-      return `\\begin{figure}[h]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{${b.image?.blobId ?? 'figure'}}\n  \\caption{${escapeLatex(b.image?.alt ?? b.text ?? '')}${cite()}}\n\\end{figure}`;
+    case 'slide': {
+      const fig = `\\begin{figure}[h]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{${b.image?.blobId ?? 'figure'}}\n  \\caption{${escapeLatex(b.image?.alt ?? b.text ?? '')}${cite()}}\n\\end{figure}`;
+      return [fig, labelsToLatex(b.labels)].filter(Boolean).join('\n\n');
+    }
     case 'ink': {
+      const labels = labelsToLatex(b.labels);
       if (b.beautified?.active) {
-        return b.beautified.items
+        const items = b.beautified.items
           .map((it) => (it.kind === 'latex' ? `\\[\n${it.latex}\n\\]` : it.kind === 'text' ? escapeLatex(it.text) : ''))
           .filter(Boolean)
           .join('\n\n');
+        return [items, labels].filter(Boolean).join('\n\n');
       }
-      return '% (hand-drawn figure — export as SVG)';
+      return labels || '% (hand-drawn figure — export as SVG)';
     }
     case 'embed':
       return '';
