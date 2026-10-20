@@ -25,11 +25,12 @@ import { CURRENT_INK, itemBBox, textMetrics } from '../../core/ink/render';
 import { beautify, expandToItems, mergeBeautified, type InkAI } from '../../core/ink/beautify';
 import { acceptConversion, conversionBox, deleteLabel, updateLabel, type PendingConversion } from '../../core/ink/convert';
 import { safeColor, sanitizeSvgFragment, escapeXml } from '../../core/ink/svgsafe';
-import { getBlock, sortLabels } from '../../core/blocks';
+import { blockLabelList, getBlock } from '../../core/blocks';
 import { uid } from '../../core/util/ids';
 import { renderInline } from '../markdown/render';
 import { useYShallow } from '../hooks/useY';
 import { useUI } from '../app/store';
+import { undoManagerFor } from '../desk/undo';
 import { isDrawingTool, useInkStore } from './inkStore';
 import { InkSurface, type InkSelection } from './surface';
 import { addPending, isKeptAsInk, keepAsInk, listPending, movePending, removePending, updatePending, usePending } from './conversions';
@@ -237,12 +238,9 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
   const photo = fixedHeight !== undefined && fixedHeight > 0;
   const height = photo ? fixedHeight! : Number(block.get('height')) || 300;
   const beautified = block.get('beautified') as Beautified | undefined;
-  const displayH = photo ? height : Math.max(height, minHeight);
   const tool = useInkStore((s) => s.tool);
   const autoConvert = useInkStore((s) => s.autoConvert);
-  const labelsMap = block.get('labels') as Y.Map<InkLabel> | undefined;
-  useYShallow(labelsMap as unknown as Y.AbstractType<unknown> | undefined);
-  const labels = labelsMap ? sortLabels([...labelsMap.values()]) : [];
+  const labels = blockLabelList(block);
   const pending = usePending(block);
   const strokesArr = block.get('strokes') as Y.Array<Stroke> | undefined;
   // previews follow their strokes (moved, erased)
@@ -253,6 +251,8 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
   const committedRef = useRef<HTMLCanvasElement>(null);
   const wetRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<InkSurface | null>(null);
+  // ink beyond the stored height (e.g. drawn on another device below a split) stays visible
+  const displayH = photo ? height : Math.max(height, minHeight, engineRef.current?.displayHeight ?? 0);
 
   const [width, setWidth] = useState(0);
   const [count, setCount] = useState(0);
@@ -271,6 +271,8 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
   const strokeRef = useRef<(s: Stroke) => void>(() => {});
   const scrollerRef = useRef(scroller ?? null);
   scrollerRef.current = scroller ?? null;
+  /** engine settings, re-applied whenever the engine is recreated (filled in below) */
+  const settingsRef = useRef({ fixedHeight: null as number | null, zoom: 1, readOnly, minHeight, previewIds: [] as string[] });
 
   // ---- engine lifecycle
   useLayoutEffect(() => {
@@ -287,6 +289,12 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
       onStrokeCommitted: (s) => strokeRef.current(s),
     });
     engineRef.current = eng;
+    // a new engine starts from defaults: apply the current settings
+    eng.setFixedHeight(settingsRef.current.fixedHeight);
+    eng.setZoom(settingsRef.current.zoom);
+    eng.setReadOnly(settingsRef.current.readOnly);
+    eng.setMinHeight(settingsRef.current.minHeight);
+    eng.setPreviewHidden(settingsRef.current.previewIds);
     // focus view: track the visible part of the surface
     const updateViewport = () => {
       const sc = scrollerRef.current;
@@ -391,6 +399,7 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
   }, [block, staleKey]);
   const previewIds = previews.flatMap((p) => p.conv.strokeIds);
   const previewKey = previewIds.join(',');
+  settingsRef.current = { fixedHeight: photo ? fixedHeight! : null, zoom: zoom ?? 1, readOnly, minHeight: photo ? 0 : minHeight, previewIds };
   useEffect(() => {
     engineRef.current?.setPreviewHidden(previewKey ? previewKey.split(',') : []);
   }, [previewKey]);
@@ -449,9 +458,11 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
     try {
       const res = await beautify(strokes, { ai: aiRef.current, rasterize: (s) => eng.rasterize(s) });
       const unrec = new Set(res.unrecognizedStrokeIds);
-      const replaced = new Set([...ids].filter((id) => !unrec.has(id)));
       const shapes = res.items.filter((it) => it.kind === 'shape');
       const writing = res.items.filter((it): it is TextItem => it.kind !== 'shape');
+      // writing is only a preview: typed text stored earlier for it stays until the owner decides
+      const read = new Set(writing.flatMap((it) => it.strokeIds));
+      const replaced = new Set([...ids].filter((id) => !unrec.has(id) && !read.has(id)));
       const cur = block.get('beautified') as Beautified | undefined;
       const touchesOld = !!cur?.items.some((it) => it.strokeIds.some((id) => replaced.has(id)));
       if (shapes.length || touchesOld) {
@@ -516,6 +527,7 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
     // continue a line: previews right next to the new writing are re-read together with it
     const box = conversionBox(fresh);
     const joined = listPending(block).filter((c) => {
+      if (c.edited) return false; // the owner corrected it: don't re-read over their text
       const ss = c.strokeIds.map((id) => byId.get(id));
       return ss.every(Boolean) && bboxDistance(conversionBox(ss as Stroke[]), box) < JOIN_DISTANCE;
     });
@@ -527,7 +539,8 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
       const writing = res.items.filter((it): it is TextItem => it.kind !== 'shape');
       // only keep results whose ink is still there
       const alive = new Set(eng.getStrokes().map((s) => s.id));
-      const usable = writing.filter((w) => w.strokeIds.every((id) => alive.has(id)));
+      // still there, and not kept as ink while it was being read
+      const usable = writing.filter((w) => w.strokeIds.every((id) => alive.has(id) && !isKeptAsInk(block, id)));
       if (usable.length) addPending(block, usable.map(toPending));
       if (res.errors.length) setNotice(`Couldn't read some handwriting: ${res.errors[0]}`);
     } catch (e) {
@@ -578,17 +591,23 @@ export function InkCanvas({ block, readOnly = false, onHeightChange, minHeight =
       );
       setEditing(null);
       let toNote = 0;
-      for (const conv of items) {
-        const res = acceptConversion(doc, blockId, conv, { label: photo });
-        if (res.mode === 'blocks') {
-          toNote++;
-          if (res.movedTo) {
-            const moved = getBlock(doc, res.movedTo);
-            if (moved) movePending(block, moved, res.movedStrokeIds);
+      // one transaction: "Accept all" is a single undo step
+      const um = undoManagerFor(doc);
+      um.stopCapturing();
+      doc.transact(() => {
+        for (const conv of items) {
+          const res = acceptConversion(doc, blockId, conv, { label: photo });
+          if (res.mode === 'blocks') {
+            toNote++;
+            if (res.movedTo) {
+              const moved = getBlock(doc, res.movedTo);
+              if (moved) movePending(block, moved, res.movedStrokeIds);
+            }
+            if (res.removedBlock) break;
           }
-          if (res.removedBlock) break;
         }
-      }
+      }, LOCAL_ORIGIN);
+      um.stopCapturing();
       // in the focus view the text lands in the note behind it
       if (toNote && scrollerRef.current) toast({ message: 'Added to the note as text', timeout: 2200 });
     },

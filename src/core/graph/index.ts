@@ -12,7 +12,7 @@ import { stateDigest } from '../storage/digest';
 import type { Vault } from '../vault';
 import type { BlockType, EmbedRef, PageKind } from '../schema';
 import { INDEX_DOC_ID } from '../schema';
-import { blockAnchor, blockEmbed, blockIds, blockLabelList, blockLabels, blockPlainText, blocksOf, blockType } from '../blocks';
+import { blockAnchor, blockEmbed, blockIds, blockLabelList, blockPlainText, blocksOf, blockType } from '../blocks';
 import { Emitter } from '../util/emitter';
 import { hash32, normalizeTitle } from '../util/ids';
 import { parseRefs, plainText, type EmbedTarget } from './parse';
@@ -234,9 +234,9 @@ const REFS_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['text', 'image', 
 /** Searchable text of a block: its text plus typed labels on whiteboards and photos. */
 function blockSearchText(b: Y.Map<unknown>): string {
   const raw = blockPlainText(b);
-  const labels = blockLabels(b);
-  if (!labels || !labels.size) return raw;
-  const extra = blockLabelList(b)
+  const labels = blockLabelList(b);
+  if (!labels.length) return raw;
+  const extra = labels
     .map((l) => (l.kind === 'latex' ? `$${l.content}$` : l.content))
     .join('\n');
   return raw ? `${raw}\n${extra}` : extra;

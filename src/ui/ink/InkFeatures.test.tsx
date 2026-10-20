@@ -220,6 +220,54 @@ describe('handwriting previews', () => {
   });
 });
 
+describe('review fixes', () => {
+  it('Beautify keeps typed text stored by older versions until the owner decides', async () => {
+    const strokes = word('hello', 100, 100, 30);
+    const old: Beautified = { active: true, createdAt: 0, items: [{ kind: 'text', x: 100, y: 100, w: 150, h: 30, text: 'Old', strokeIds: strokes.map((s) => s.id) }] };
+    const doc = new Y.Doc();
+    const [id] = insertBlocks(doc, [{ type: 'ink', height: 400, strokes, beautified: old }]);
+    const block = getBlock(doc, id)!;
+    act(() => root.render(<InkCanvas block={block} ai={new FakeAI()} />));
+    act(() => useInkStore.getState().setTool('lasso'));
+    const el = host.querySelector('.ink-block')!;
+    lasso(el, 80, 80, 300, 150);
+    act(() => ([...host.querySelectorAll('.ink-selection-bar button')].find((b) => b.textContent?.includes('Beautify')) as HTMLButtonElement).click());
+    await flush();
+    expect(listPending(block)).toHaveLength(1);
+    expect((block.get('beautified') as Beautified).items).toHaveLength(1);
+  });
+
+  it('ink below the stored height (e.g. from another device) stays visible', () => {
+    const { block } = page([], { height: 300 });
+    act(() => root.render(<InkCanvas block={block} />));
+    act(() => {
+      block.doc!.transact(() => (block.get('strokes') as Y.Array<Stroke>).push([{ id: 'far', pts: [100, 880, 0.5, 200, 900, 0.5], color: 'currentInk', size: 4, tool: 'pen' }]));
+    });
+    const ratio = (host.querySelector('.ink-surface') as HTMLElement).style.aspectRatio;
+    expect(Number(ratio.split('/')[1])).toBeGreaterThanOrEqual(900);
+  });
+
+  it('Accept all is a single undo step', async () => {
+    const strokes = [...word('abc', 100, 60, 30), ...word('abd', 100, 200, 30)];
+    const { doc, block } = page(strokes);
+    const ai = new FakeAI();
+    act(() => root.render(<InkCanvas block={block} ai={ai} />));
+    act(() => useInkStore.getState().setTool('lasso'));
+    const el = host.querySelector('.ink-block')!;
+    lasso(el, 80, 40, 300, 260);
+    act(() => ([...host.querySelectorAll('.ink-selection-bar button')].find((b) => b.textContent?.includes('Beautify')) as HTMLButtonElement).click());
+    await flush();
+    expect(listPending(block)).toHaveLength(2);
+    const { undoManagerFor } = await import('../desk/undo');
+    const um = undoManagerFor(doc);
+    act(() => ([...host.querySelectorAll('.ink-preview-all button')].find((b) => b.textContent?.includes('Accept all')) as HTMLButtonElement).click());
+    expect(types(doc)).toEqual(['text', 'text', 'text', 'text']);
+    um.undo();
+    expect(types(doc)).toEqual(['text', 'ink', 'text']);
+    expect(blockStrokes(getBlock(doc, blockIds(doc)[1])!)!.length).toBe(strokes.length);
+  });
+});
+
 describe('typed labels', () => {
   const label: InkLabel = { id: 'L', x: 100, y: 100, w: 120, h: 30, kind: 'text', content: 'force', size: 20, createdAt: 0 };
 

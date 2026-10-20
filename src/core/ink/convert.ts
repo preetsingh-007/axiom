@@ -5,9 +5,11 @@
  * strokes). They are only previews: nothing is stored until the owner chooses.
  *
  *   acceptConversion(doc, blockId, conv)  the typed text replaces the ink:
- *     - writing that stands on its own line of a whiteboard becomes real note blocks (text or
- *       math) at that spot: the whiteboard is split around it, ink above stays, ink below moves
- *       into a new whiteboard after the text, and an emptied whiteboard is removed;
+ *     - writing that stands on its own line of a whiteboard becomes a real note block (text or
+ *       math) at that spot: the whiteboard is split around it. Ink above stays in the whiteboard
+ *       (its id, embeds and source anchor are kept), ink below moves into a new whiteboard after
+ *       the text. With nothing above, the text goes before the whiteboard and its ink moves up;
+ *       with nothing else at all, the whiteboard itself turns into the text block;
  *     - writing beside a drawing (or on a photo) becomes a typed label on the canvas, so the
  *       diagram keeps its layout.
  *   Keeping the ink is simply dropping the preview.
@@ -16,7 +18,7 @@
  */
 import * as Y from 'yjs';
 import type { Beautified, InkLabel, Stroke } from '../schema';
-import { blockIds, blockType, deleteBlock, getBlock, insertBlocks, type NewBlock } from '../blocks';
+import { blockIds, blockLabelList, blockType, getBlock, insertBlocks, isLabelKey, putLabel, removeLabel, getLabel, type NewBlock } from '../blocks';
 import { LOCAL_ORIGIN } from '../storage/docstore';
 import { uid } from '../util/ids';
 import { inflateBBox, strokeBBox, strokesBBox, type BBox } from './geometry';
@@ -28,6 +30,8 @@ export interface PendingConversion {
   kind: 'text' | 'latex';
   content: string;
   strokeIds: string[];
+  /** corrected by the owner (auto-convert won't re-read it) */
+  edited?: boolean;
 }
 
 export type AcceptResult =
@@ -98,8 +102,8 @@ export function acceptConversion(doc: Y.Doc, blockId: string, conv: PendingConve
     }
   }
   for (const s of all) if (!convIds.has(s.id) && !grouped.has(s.id)) others.push({ box: strokeBox(s), strokeIds: [s.id] });
-  const labelsMap = block.get('labels') as Y.Map<InkLabel> | undefined;
-  for (const l of labelsMap?.values() ?? []) others.push({ box: { x: l.x, y: l.y, w: l.w, h: l.h }, strokeIds: [], labelId: l.id });
+  const labels = blockLabelList(block);
+  for (const l of labels) others.push({ box: { x: l.x, y: l.y, w: l.w, h: l.h }, strokeIds: [], labelId: l.id });
 
   const top = region.y - LINE_SLACK;
   const bottom = region.y + region.h + LINE_SLACK;
@@ -121,12 +125,7 @@ export function acceptConversion(doc: Y.Doc, blockId: string, conv: PendingConve
     };
     doc.transact(() => {
       removeStrokes(block, arr, convIds);
-      let m = block.get('labels') as Y.Map<InkLabel> | undefined;
-      if (!m) {
-        m = new Y.Map<InkLabel>();
-        block.set('labels', m);
-      }
-      m.set(label.id, label);
+      putLabel(block, label);
     }, LOCAL_ORIGIN);
     return { mode: 'label', labelId: label.id };
   }
@@ -140,44 +139,75 @@ export function acceptConversion(doc: Y.Doc, blockId: string, conv: PendingConve
   const belowLabelIds = new Set(below.map((o) => o.labelId).filter((x): x is string => !!x));
   const aboveBottom = above.reduce((a, o) => Math.max(a, o.box.y + o.box.h), 0);
 
-  const textSpec: NewBlock = conv.kind === 'latex' ? { type: 'math', text: conv.content.trim() } : { type: 'text', text: conv.content.trim() };
+  const kind = conv.kind === 'latex' ? 'math' : 'text';
+  const content = conv.content.trim();
+  const idx = blockIds(doc).indexOf(blockId);
+
+  // nothing else on the whiteboard: it becomes the text block (same id: embeds and anchors live on)
+  if (!above.length && !below.length) {
+    doc.transact(() => {
+      removeStrokes(block, arr, convIds);
+      for (const k of [...block.keys()]) if (k === 'strokes' || k === 'height' || k === 'beautified' || isLabelKey(k)) block.delete(k);
+      const t = new Y.Text();
+      t.insert(0, content);
+      block.set('text', t);
+      block.set('type', kind);
+    }, LOCAL_ORIGIN);
+    return { mode: 'blocks', textBlockId: blockId, movedTo: null, movedStrokeIds: [], dy: 0, removedBlock: true };
+  }
+
+  const dy = -cut;
+  const bottomOfBelow = below.reduce((a, o) => Math.max(a, o.box.y + o.box.h), 0) + dy;
+  const belowHeight = Math.max(MIN_SPLIT_HEIGHT, Math.ceil(Math.max(height - cut, bottomOfBelow + SPLIT_PAD)));
+
+  // nothing above: the text goes first and the whiteboard's ink moves up in place
+  if (!above.length) {
+    let textBlockId = '';
+    doc.transact(() => {
+      removeStrokes(block, arr, convIds);
+      const rest = arr.toArray();
+      if (rest.length) {
+        arr.delete(0, rest.length);
+        arr.push(rest.map((st) => ({ ...st, pts: shiftPts(st.pts, dy) })));
+      }
+      for (const l of labels) if (belowLabelIds.has(l.id)) putLabel(block, { ...l, y: round(l.y + dy) });
+      const b = block.get('beautified') as Beautified | undefined;
+      if (b) {
+        const nb = transformBeautified(b, new Set(rest.map((st) => st.id)), { dx: 0, dy });
+        if (nb) block.set('beautified', nb);
+      }
+      block.set('height', belowHeight);
+      textBlockId = insertBlocks(doc, [{ type: kind, text: content }], idx, LOCAL_ORIGIN)[0];
+    }, LOCAL_ORIGIN);
+    return { mode: 'blocks', textBlockId, movedTo: null, movedStrokeIds: [], dy, removedBlock: false };
+  }
+
+  // ink above and below: the whiteboard keeps the ink above; the ink below gets a new whiteboard
   let textBlockId = '';
   let movedTo: string | null = null;
-  let removedBlock = false;
   doc.transact(() => {
-    const specs: NewBlock[] = [textSpec];
+    const specs: NewBlock[] = [{ type: kind, text: content }];
     if (below.length) {
-      const dy = -cut;
-      const moved = all.filter((s) => belowStrokeIds.has(s.id)).map((s) => ({ ...s, pts: shiftPts(s.pts, dy) }));
-      const movedLabels = [...(labelsMap?.values() ?? [])].filter((l) => belowLabelIds.has(l.id)).map((l) => ({ ...l, y: round(l.y + dy) }));
+      const moved = all.filter((st) => belowStrokeIds.has(st.id)).map((st) => ({ ...st, pts: shiftPts(st.pts, dy) }));
+      const movedLabels = labels.filter((l) => belowLabelIds.has(l.id)).map((l) => ({ ...l, y: round(l.y + dy) }));
       const movedBeautified = beautified ? pickBeautified(beautified, belowStrokeIds, dy) : null;
-      const bottomOfBelow = below.reduce((a, o) => Math.max(a, o.box.y + o.box.h), 0) + dy;
       specs.push({
         type: 'ink',
-        height: Math.max(MIN_SPLIT_HEIGHT, Math.ceil(Math.max(height - cut, bottomOfBelow + SPLIT_PAD))),
+        height: belowHeight,
         strokes: moved,
         labels: movedLabels.length ? movedLabels : undefined,
         beautified: movedBeautified ?? undefined,
       });
     }
-    // remove the writing and whatever moved below
-    const gone = new Set([...convIds, ...belowStrokeIds]);
-    removeStrokes(block, arr, gone);
-    if (labelsMap) for (const id of belowLabelIds) labelsMap.delete(id);
-
-    const idx = blockIds(doc).indexOf(blockId);
+    removeStrokes(block, arr, new Set([...convIds, ...belowStrokeIds]));
+    for (const id of belowLabelIds) removeLabel(block, id);
     const ids = insertBlocks(doc, specs, idx + 1, LOCAL_ORIGIN);
     textBlockId = ids[0];
     movedTo = ids[1] ?? null;
-    if (!above.length) {
-      deleteBlock(doc, blockId, LOCAL_ORIGIN);
-      removedBlock = true;
-    } else {
-      const next = Math.max(MIN_SPLIT_HEIGHT, Math.ceil(Math.min(height, Math.max(aboveBottom + SPLIT_PAD, region.y - SPLIT_PAD / 2))));
-      if (next !== height) block.set('height', next);
-    }
+    const next = Math.max(MIN_SPLIT_HEIGHT, Math.ceil(Math.min(height, Math.max(aboveBottom + SPLIT_PAD, region.y - SPLIT_PAD / 2))));
+    if (next !== height) block.set('height', next);
   }, LOCAL_ORIGIN);
-  return { mode: 'blocks', textBlockId, movedTo, movedStrokeIds: [...belowStrokeIds], dy: -cut, removedBlock };
+  return { mode: 'blocks', textBlockId, movedTo, movedStrokeIds: [...belowStrokeIds], dy, removedBlock: false };
 }
 
 function shiftPts(pts: number[], dy: number): number[] {
@@ -228,13 +258,12 @@ function dominantColor(strokes: readonly Stroke[]): string | undefined {
 
 /** Updates a label's text (one label is a single CRDT value: last writer wins). */
 export function updateLabel(block: Y.Map<unknown>, id: string, patch: Partial<Pick<InkLabel, 'content' | 'kind'>>): boolean {
-  const m = block.get('labels') as Y.Map<InkLabel> | undefined;
-  const cur = m?.get(id);
-  if (!m || !cur) return false;
+  const cur = getLabel(block, id);
+  if (!cur) return false;
   const next = { ...cur, ...patch };
   const apply = () => {
-    if (!next.content.trim()) m.delete(id);
-    else m.set(id, next);
+    if (!next.content.trim()) removeLabel(block, id);
+    else putLabel(block, next);
   };
   if (block.doc) block.doc.transact(apply, LOCAL_ORIGIN);
   else apply();
@@ -242,8 +271,7 @@ export function updateLabel(block: Y.Map<unknown>, id: string, patch: Partial<Pi
 }
 
 export function deleteLabel(block: Y.Map<unknown>, id: string) {
-  const m = block.get('labels') as Y.Map<InkLabel> | undefined;
-  if (!m?.has(id)) return;
-  if (block.doc) block.doc.transact(() => m.delete(id), LOCAL_ORIGIN);
-  else m.delete(id);
+  if (!getLabel(block, id)) return;
+  if (block.doc) block.doc.transact(() => removeLabel(block, id), LOCAL_ORIGIN);
+  else removeLabel(block, id);
 }

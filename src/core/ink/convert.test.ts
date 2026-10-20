@@ -27,16 +27,31 @@ const conv = (strokeIds: string[], content = 'hello world', kind: 'text' | 'late
 const types = (doc: Y.Doc) => blockIds(doc).map((id) => blockType(getBlock(doc, id)!));
 
 describe('acceptConversion', () => {
-  it('writing alone on a whiteboard becomes a text block in its place (the empty whiteboard goes)', () => {
-    const { doc, before, after } = setup([word('a', 100, 100), word('b', 240, 100)]);
-    const res = acceptConversion(doc, blockIds(doc)[1], conv(['a', 'b']));
+  it('writing alone on a whiteboard turns the whiteboard into the text block (same id)', () => {
+    const { doc, before, ink, after } = setup([word('a', 100, 100), word('b', 240, 100)]);
+    const res = acceptConversion(doc, ink, conv(['a', 'b']));
     expect(res.mode).toBe('blocks');
+    expect(blockIds(doc)).toEqual([before, ink, after]);
     expect(types(doc)).toEqual(['text', 'text', 'text']);
-    const ids = blockIds(doc);
-    expect(ids[0]).toBe(before);
-    expect(blockPlainText(getBlock(doc, ids[1])!)).toBe('hello world');
-    expect(ids[2]).toBe(after);
+    const b = getBlock(doc, ink)!;
+    expect(blockPlainText(b)).toBe('hello world');
+    expect([...b.keys()].sort()).toEqual(['createdAt', 'id', 'text', 'type']);
     expect(res.mode === 'blocks' && res.removedBlock).toBe(true);
+  });
+
+  it('with nothing above, the text goes first and the whiteboard (id, anchor) keeps the ink below', () => {
+    const anchor = { sourceId: 'src', loc: { page: 3 }, createdAt: 0 };
+    const doc = new Y.Doc();
+    const [ink] = insertBlocks(doc, [{ type: 'ink', height: 600, strokes: [word('w', 100, 60), word('bot', 100, 400)], anchor }]);
+    const res = acceptConversion(doc, ink, conv(['w']));
+    expect(types(doc)).toEqual(['text', 'ink']);
+    expect(blockIds(doc)[1]).toBe(ink);
+    const b = getBlock(doc, ink)!;
+    expect(b.get('anchor')).toEqual(anchor);
+    const st = blockStrokes(b)!.toArray();
+    expect(st.map((x) => x.id)).toEqual(['bot']);
+    expect(st[0].pts[1]).toBeLessThan(400);
+    expect(res.mode === 'blocks' && res.movedTo).toBeNull();
   });
 
   it('LaTeX becomes a math block', () => {
@@ -104,9 +119,10 @@ describe('acceptConversion', () => {
     const label: InkLabel = { id: 'L', x: 100, y: 470, w: 80, h: 20, kind: 'text', content: 'label', size: 14, createdAt: 0 };
     const { doc, ink } = setup([word('w', 100, 200), shapeStroke], { beautified, labels: [label] });
     acceptConversion(doc, ink, conv(['w']));
-    // nothing above the writing: the original whiteboard is replaced
+    // nothing above the writing: the text goes first, the whiteboard keeps the rest, moved up
     expect(types(doc)).toEqual(['text', 'text', 'ink', 'text']);
-    const lower = getBlock(doc, blockIds(doc)[2])!;
+    expect(blockIds(doc)[2]).toBe(ink);
+    const lower = getBlock(doc, ink)!;
     const b = lower.get('beautified') as Beautified;
     expect(b.items).toHaveLength(1);
     expect(b.items[0].kind === 'shape' && b.items[0].bbox[1]).toBeLessThan(450);

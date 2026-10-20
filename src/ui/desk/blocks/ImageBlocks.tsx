@@ -13,7 +13,7 @@ import { INK_LOGICAL_WIDTH } from '../../../core/schema';
 import { inkToSvg } from '../../../core/ink/render';
 import { LOCAL_ORIGIN } from '../../../core/storage/docstore';
 import { useBlobUrl, useYText } from '../../hooks/usePage';
-import { useYSelect, useYDeep } from '../../hooks/useY';
+import { useYSelect, useYDeep, useYShallow } from '../../hooks/useY';
 import { renderSourcePage } from '../../library/pdfCache';
 import { LabelView } from '../../ink/InkCanvas';
 import { openFocus, type FocusPhoto } from '../../ink/focusStore';
@@ -68,14 +68,21 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
 
 /** Annotations drawn over a photo in the note (static; editing happens in the focus view). */
 export function AnnotationLayer({ block, aspect }: { block: BlockMap; aspect: number }) {
-  useYDeep(block);
+  // labels and beautified are block keys; strokes change inside their array (captions don't matter)
+  useYShallow(block);
+  const strokesArr = blockStrokes(block);
+  const strokesVersion = useYDeep(strokesArr);
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
-  const strokes = blockStrokes(block)?.toArray() ?? [];
   const beautified = blockBeautified(block);
   const labels = blockLabelList(block);
   const h = INK_LOGICAL_WIDTH / aspect;
-  const svg = useMemo(() => (strokes.length || beautified ? inkToSvg(strokes, beautified, INK_LOGICAL_WIDTH, h, { inkColor: '#1d2230' }) : ''), [strokes, beautified, h]);
+  const svg = useMemo(() => {
+    const strokes = strokesArr?.toArray() ?? [];
+    return strokes.length || beautified ? inkToSvg(strokes, beautified, INK_LOGICAL_WIDTH, h, { inkColor: '#1d2230' }) : '';
+    // strokesVersion: the array is mutated in place
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strokesArr, strokesVersion, beautified, h]);
   const scale = (width || INK_LOGICAL_WIDTH) / INK_LOGICAL_WIDTH;
   return (
     <div ref={ref} className="blk-annot" aria-hidden="true">

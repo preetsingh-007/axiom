@@ -39,6 +39,7 @@ import { coveredStrokeIds, itemBBox, PathCache, renderStrokes, resolveInkColor, 
 import { removeStrokesFromBeautified, transformBeautified, type RasterImage } from '../../core/ink/beautify';
 import { uid } from '../../core/util/ids';
 import { ERASER_RADIUS, strokeWidthFor, useInkStore } from './inkStore';
+import { blockLabelList, getLabel, isLabelKey, putLabel, removeLabel } from '../../core/blocks';
 
 export interface InkSelection {
   /** selected stroke ids */
@@ -150,9 +151,9 @@ export class InkSurface {
   private scroller: HTMLElement | null = null;
   private penScale = 1;
   private eraserScale = 1;
-  private labelsMap: Y.Map<InkLabel> | null = null;
   private labels: InkLabel[] = [];
-  private unbindLabels: (() => void) | null = null;
+  /** lowest point of the ink (logical units): the canvas always shows all of it */
+  private contentBottom = 0;
 
   constructor(
     private root: HTMLElement,
@@ -186,39 +187,41 @@ export class InkSurface {
   private bindBlock() {
     const onBlock = (ev: Y.YMapEvent<unknown>) => {
       if (ev.keysChanged.has('strokes')) this.bindStrokes();
-      if (ev.keysChanged.has('labels')) this.bindLabels();
+      if ([...ev.keysChanged].some(isLabelKey)) this.refreshLabels();
       if (ev.keysChanged.has('beautified')) this.refreshCovered();
       if (ev.keysChanged.has('height')) this.applyHeight();
     };
     this.block.observe(onBlock);
     this.cleanup.push(() => this.block.unobserve(onBlock));
     this.bindStrokes();
-    this.bindLabels();
+    this.refreshLabels();
     this.refreshCovered();
     this.applyHeight();
   }
 
-  private bindLabels() {
-    this.unbindLabels?.();
-    const m = (this.block.get('labels') as Y.Map<InkLabel> | undefined) ?? null;
-    this.labelsMap = m;
-    const refresh = () => {
-      this.labels = m ? [...m.values()] : [];
-      const sel = this.selection;
-      if (sel?.labelIds?.length) {
-        const alive = new Set(this.labels.map((l) => l.id));
-        const labelIds = sel.labelIds.filter((id) => alive.has(id));
-        if (labelIds.length !== sel.labelIds.length) this.setSelection(sel.ids.length || labelIds.length ? this.selectionFor(sel.ids, labelIds) : null);
-        else this.setSelection(this.selectionFor(sel.ids, labelIds));
-      }
-    };
-    refresh();
-    if (!m) {
-      this.unbindLabels = null;
-      return;
+  private refreshLabels() {
+    this.labels = blockLabelList(this.block);
+    const sel = this.selection;
+    if (sel?.labelIds?.length) {
+      const alive = new Set(this.labels.map((l) => l.id));
+      const labelIds = sel.labelIds.filter((id) => alive.has(id));
+      this.setSelection(sel.ids.length || labelIds.length ? this.selectionFor(sel.ids, labelIds) : null);
     }
-    m.observe(refresh);
-    this.unbindLabels = () => m.unobserve(refresh);
+  }
+
+  /** Keeps every stroke inside the canvas, e.g. ink added on another device below a split. */
+  private refreshContentBottom() {
+    if (this.fixedHeight) return;
+    let max = 0;
+    for (const st of this.strokes) {
+      const b = this.cache.box(st);
+      max = Math.max(max, b.y + b.h + st.size);
+    }
+    const next = Math.ceil(max);
+    if (next === this.contentBottom) return;
+    const before = this.displayHeight;
+    this.contentBottom = next;
+    if (this.displayHeight !== before) this.resize();
   }
 
   private unbindStrokes: (() => void) | null = null;
@@ -228,6 +231,7 @@ export class InkSurface {
     const arr = (this.block.get('strokes') as Y.Array<Stroke> | undefined) ?? null;
     this.arr = arr;
     this.strokes = arr ? arr.toArray() : [];
+    this.refreshContentBottom();
     this.cb.onCount(this.strokes.length);
     if (!arr) {
       this.unbindStrokes = null;
@@ -237,6 +241,7 @@ export class InkSurface {
     const onStrokes = (ev: Y.YArrayEvent<Stroke>) => {
       const prevLen = this.strokes.length;
       this.strokes = arr.toArray();
+      this.refreshContentBottom();
       const d = ev.changes.delta;
       const appendOnly =
         (d.length === 1 && d[0].insert !== undefined && prevLen === 0) ||
@@ -275,7 +280,6 @@ export class InkSurface {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     this.unbindStrokes?.();
-    this.unbindLabels?.();
     for (const fn of this.cleanup) fn();
     this.cleanup = [];
   }
@@ -326,7 +330,8 @@ export class InkSurface {
 
   /** Displayed height in logical units. */
   get displayHeight(): number {
-    return Math.max(this.logicalHeight, this.minHeight);
+    if (this.fixedHeight) return this.fixedHeight;
+    return Math.max(this.logicalHeight, this.minHeight, this.contentBottom);
   }
 
   get currentScale(): number {
@@ -888,10 +893,9 @@ export class InkSurface {
   deleteStrokes(ids: Set<string>, labelIds: Iterable<string> = []) {
     const arr = this.arr;
     const labels = [...labelIds];
-    if (labels.length && this.labelsMap) {
-      const m = this.labelsMap;
+    if (labels.length) {
       this.transact(() => {
-        for (const id of labels) m.delete(id);
+        for (const id of labels) removeLabel(this.block, id);
         if (arr && ids.size) this.deleteStrokeRuns(arr, ids);
       });
       return;
@@ -1046,11 +1050,10 @@ export class InkSurface {
     const labelIds = new Set(sel.labelIds ?? []);
     let maxY = 0;
     this.transact(() => {
-      const m = this.labelsMap;
-      if (m && labelIds.size) {
+      if (labelIds.size) {
         const s = t.s;
         for (const id of labelIds) {
-          const l = m.get(id);
+          const l = getLabel(this.block, id);
           if (!l) continue;
           const next: InkLabel = {
             ...l,
@@ -1062,7 +1065,7 @@ export class InkSurface {
           };
           if (this.fixedHeight) next.y = Math.max(0, Math.min(this.fixedHeight - next.h, next.y));
           maxY = Math.max(maxY, next.y + next.h);
-          m.set(id, next);
+          putLabel(this.block, next);
         }
       }
       const list = arr ? arr.toArray() : [];

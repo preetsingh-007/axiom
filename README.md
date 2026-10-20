@@ -128,7 +128,7 @@ tests/e2e/              Playwright end-to-end, touch-gesture, sync and performan
 ## Testing
 
 ```bash
-npm test               # 435 unit tests (Vitest)
+npm test               # 440 unit tests (Vitest)
 npm run test:e2e       # 38 end-to-end tests (Playwright, desktop + tablet touch profiles)
 npm run typecheck
 npm run demos          # re-record the README / guide animations (needs `npm run preview` running)

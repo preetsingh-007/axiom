@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { blockDisplayWidth, blockIds, blockLabelList, blockPlainText, convertBlock, deleteBlock, getBlock, insertBlock, insertBlockAfter, insertBlocks, moveBlock, setBlockText, snapshotBlock, snapshotPage, snapshotToNewBlock } from './blocks';
+import { blockDisplayWidth, blockIds, blockLabelList, putLabel, blockPlainText, convertBlock, deleteBlock, getBlock, insertBlock, insertBlockAfter, insertBlocks, moveBlock, setBlockText, snapshotBlock, snapshotPage, snapshotToNewBlock } from './blocks';
 import type { InkLabel, Stroke } from './schema';
 
 function sync(a: Y.Doc, b: Y.Doc) {
@@ -98,14 +98,37 @@ describe('blocks', () => {
     expect(snapshotToNewBlock(snapImg, { keepId: true }).id).toBe(img);
   });
 
-  it('plain image blocks stay as before (no annotation fields)', () => {
+  it('new image blocks get an empty annotation array up front (no size or labels)', () => {
     const doc = new Y.Doc();
     const [img] = insertBlocks(doc, [{ type: 'image', image: { blobId: 'b', w: 4, h: 3 } }]);
     const b = getBlock(doc, img)!;
-    expect([...b.keys()].sort()).toEqual(['createdAt', 'id', 'image', 'type']);
+    expect([...b.keys()].sort()).toEqual(['createdAt', 'id', 'image', 'strokes', 'type']);
     const snap = snapshotBlock(b);
     expect(snap.displayWidth).toBeUndefined();
     expect(snap.labels).toBeUndefined();
-    expect(snap.strokes).toBeUndefined();
+    expect(snap.strokes).toEqual([]);
+  });
+
+  it('first annotations and labels added on two devices at once both survive', () => {
+    const d1 = new Y.Doc();
+    const d2 = new Y.Doc();
+    const [img] = insertBlocks(d1, [{ type: 'image', image: { blobId: 'b', w: 4, h: 3 } }]);
+    sync(d1, d2);
+    const s = (id: string): Stroke => ({ id, pts: [0, 0, 0.5, 1, 1, 0.5], color: '#e5484d', size: 3, tool: 'pen' });
+    const l = (id: string): InkLabel => ({ id, x: 0, y: 0, w: 10, h: 10, kind: 'text', content: id, size: 12, createdAt: 0 });
+    d1.transact(() => {
+      (getBlock(d1, img)!.get('strokes') as Y.Array<Stroke>).push([s('a')]);
+      putLabel(getBlock(d1, img)!, l('one'));
+    });
+    d2.transact(() => {
+      (getBlock(d2, img)!.get('strokes') as Y.Array<Stroke>).push([s('b')]);
+      putLabel(getBlock(d2, img)!, l('two'));
+    });
+    sync(d1, d2);
+    for (const d of [d1, d2]) {
+      const snap = snapshotBlock(getBlock(d, img)!);
+      expect(snap.strokes!.map((x) => x.id).sort()).toEqual(['a', 'b']);
+      expect(snap.labels!.map((x) => x.id).sort()).toEqual(['one', 'two']);
+    }
   });
 });

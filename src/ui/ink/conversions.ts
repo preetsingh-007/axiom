@@ -49,7 +49,7 @@ export function updatePending(block: Block, id: string, patch: Partial<Pick<Pend
   const i = cur.findIndex((c) => c.id === id);
   if (i < 0) return;
   const next = cur.slice();
-  next[i] = { ...cur[i], ...patch };
+  next[i] = { ...cur[i], ...patch, edited: true };
   pending.set(block, next);
   emit();
 }

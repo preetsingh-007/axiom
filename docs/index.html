@@ -382,7 +382,7 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
       <h3>Decide</h3>
       <p>The typed text is shown as a preview in place of your writing, with three buttons:</p>
       <ul>
-        <li><strong>Accept</strong> replaces the handwriting with the text. Writing on its own line becomes a real text or equation block in the note at that spot. The whiteboard is split around it, and ink below moves into a new whiteboard after the text. The text can then be edited, searched and linked, and <code>#flashcard</code> works. Writing next to a drawing, or on a photo, becomes a typed label on the canvas, so the diagram keeps its layout.</li>
+        <li><strong>Accept</strong> replaces the handwriting with the text. Writing on its own line becomes a real text or equation block in the note at that spot. The whiteboard is split around it, and ink below moves into a new whiteboard after the text. If the whiteboard held nothing but that writing, it becomes the text block itself. The text can then be edited, searched and linked, and <code>#flashcard</code> works. Writing next to a drawing, or on a photo, becomes a typed label on the canvas, so the diagram keeps its layout.</li>
         <li><strong>Edit</strong> (the pencil) lets you fix a word, or switch between text and maths, before accepting.</li>
         <li><strong>Keep ink</strong> discards the conversion and leaves your handwriting as it was. Auto-convert won't offer it again.</li>
       </ul>
@@ -536,7 +536,7 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
     <section id="testing">
       <h2>How it is tested</h2>
       <p>Every recording on this page was made from the real app by an automated browser script (<code>npm run demos</code>), so what you see is what the build does.</p>
-      <div class="code"><pre>npm test            <span class="c"># 435 unit tests (Vitest)</span>
+      <div class="code"><pre>npm test            <span class="c"># 440 unit tests (Vitest)</span>
 npm run test:e2e    <span class="c"># 38 end-to-end tests (Playwright, desktop + tablet)</span>
 npm run typecheck</pre></div>
       <p>The end-to-end suite drives a real Chromium through the production build:</p>

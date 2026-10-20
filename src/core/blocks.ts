@@ -11,9 +11,10 @@ import { LOCAL_ORIGIN } from './storage/docstore';
  * Block fields:
  *   id, type, createdAt
  *   text:    Y.Text            (text | math | code)
- *   strokes: Y.Array<Stroke>   (ink; image: annotations drawn over the photo)
+ *   strokes: Y.Array<Stroke>   (ink; image | slide: annotations drawn over the picture)
  *   height:  number            (ink; logical units, width = 1000)
- *   labels:  Y.Map<InkLabel>   (ink | image: typed text placed on the canvas)
+ *   label:<id>: InkLabel       (ink | image | slide: typed text placed on the canvas; one key per
+ *                              label so labels added concurrently on two devices both survive)
  *   image:   ImageRef          (image | slide)
  *   displayWidth: number       (image: fraction of the column width, 0..1; absent = natural size)
  *   annotationsHidden: boolean (image: annotations toggled off)
@@ -87,17 +88,14 @@ function buildBlock(spec: NewBlock): { id: string; map: BlockMap } {
     if (spec.strokes?.length) arr.push(spec.strokes);
     map.set('strokes', arr);
     map.set('height', spec.height ?? 300);
-  } else if (spec.strokes?.length) {
-    // annotations on a photo
+  } else if (spec.type === 'image' || spec.type === 'slide' || spec.strokes?.length) {
+    // annotations drawn over the picture; created up front so two devices annotating the same
+    // picture append to one array instead of racing to create it
     const arr = new Y.Array<Stroke>();
-    arr.push(spec.strokes);
+    if (spec.strokes?.length) arr.push(spec.strokes);
     map.set('strokes', arr);
   }
-  if (spec.labels?.length) {
-    const labels = new Y.Map<InkLabel>();
-    for (const l of spec.labels) labels.set(l.id, l);
-    map.set('labels', labels);
-  }
+  for (const l of spec.labels ?? []) map.set(LABEL_PREFIX + l.id, l);
   if (spec.beautified) map.set('beautified', spec.beautified);
   if (spec.displayWidth !== undefined) map.set('displayWidth', spec.displayWidth);
   if (spec.annotationsHidden) map.set('annotationsHidden', true);
@@ -205,16 +203,32 @@ export function blockEmbed(b: BlockMap): EmbedRef | undefined {
   return b.get('embed') as EmbedRef | undefined;
 }
 
-/** Typed labels on a whiteboard / photo (absent until the first one is added). */
-export function blockLabels(b: BlockMap): Y.Map<InkLabel> | undefined {
-  return b.get('labels') as Y.Map<InkLabel> | undefined;
+/** Block key prefix of typed labels (`label:<id>` → InkLabel). */
+export const LABEL_PREFIX = 'label:';
+
+export function isLabelKey(key: string): boolean {
+  return key.startsWith(LABEL_PREFIX);
 }
 
-/** Labels in reading order (top to bottom, then left to right). */
+/** Typed labels on a whiteboard / photo in reading order (top to bottom, then left to right). */
 export function blockLabelList(b: BlockMap): InkLabel[] {
-  const m = blockLabels(b);
-  if (!m) return [];
-  return sortLabels([...m.values()]);
+  const out: InkLabel[] = [];
+  for (const [k, v] of b.entries()) if (isLabelKey(k) && v && typeof v === 'object') out.push(v as InkLabel);
+  return out.length ? sortLabels(out) : out;
+}
+
+export function getLabel(b: BlockMap, id: string): InkLabel | undefined {
+  return b.get(LABEL_PREFIX + id) as InkLabel | undefined;
+}
+
+/** Writes a label (call inside a transaction). */
+export function putLabel(b: BlockMap, label: InkLabel) {
+  b.set(LABEL_PREFIX + label.id, label);
+}
+
+/** Removes a label (call inside a transaction). */
+export function removeLabel(b: BlockMap, id: string) {
+  if (b.has(LABEL_PREFIX + id)) b.delete(LABEL_PREFIX + id);
 }
 
 export function sortLabels(labels: InkLabel[]): InkLabel[] {
@@ -296,10 +310,15 @@ export function snapshotBlock(b: BlockMap): BlockSnapshot {
     embed: blockEmbed(b),
     lang: b.get('lang') as string | undefined,
     createdAt: b.get('createdAt') as number | undefined,
-    labels: blockLabels(b) ? blockLabelList(b) : undefined,
+    labels: labelsOrUndefined(b),
     displayWidth: blockDisplayWidth(b),
     annotationsHidden: b.get('annotationsHidden') === true ? true : undefined,
   };
+}
+
+function labelsOrUndefined(b: BlockMap): InkLabel[] | undefined {
+  const l = blockLabelList(b);
+  return l.length ? l : undefined;
 }
 
 /** A block spec that recreates a snapshot (duplicate, move between pages, merge). */
