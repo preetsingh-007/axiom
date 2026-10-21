@@ -11,6 +11,7 @@ import type { AIConfig, ProviderId } from '../../core/ai/types';
 import { ZoteroSettings } from './ZoteroSettings';
 import { exportMarkdownMirror } from './syncController';
 import { downloadBlob } from '../util/download';
+import { isStoragePersistent, requestPersistentStorage } from './storagePersistence';
 import './settings.css';
 
 function Section({ id, icon, title, desc, children }: { id: string; icon: ReactNode; title: string; desc?: string; children: ReactNode }) {
@@ -107,6 +108,12 @@ function SyncSettings() {
       {st.git?.lastError && (
         <div className="set-warn">
           <AlertTriangle size={15} /> {st.git.lastError}
+        </div>
+      )}
+      {!!st.git?.skippedFiles && (
+        <div className="set-warn">
+          <AlertTriangle size={15} /> {st.git.skippedFiles} file{st.git.skippedFiles === 1 ? ' is' : 's are'} too large for your Git host and{' '}
+          {st.git.skippedFiles === 1 ? 'is' : 'are'} not backed up or synced to your other devices.
         </div>
       )}
 
@@ -347,10 +354,12 @@ function DataSettings() {
   const { vault } = useServices();
   const toast = useUI((s) => s.toast);
   const [usage, setUsage] = useState<string>('');
+  const [persistent, setPersistent] = useState<boolean | undefined>();
   useEffect(() => {
     navigator.storage?.estimate?.().then((e) => {
       if (e.usage !== undefined) setUsage(`${(e.usage / 1024 / 1024).toFixed(1)} MB used${e.quota ? ` of ${(e.quota / 1024 / 1024 / 1024).toFixed(1)} GB available` : ''}`);
     });
+    void isStoragePersistent().then(setPersistent);
   }, []);
   const exportAll = async () => {
     const files = await exportMarkdownMirror(vault);
@@ -365,19 +374,33 @@ function DataSettings() {
       <p className="set-hint">
         {vault.pages.size} pages · {vault.sources.size} sources · {vault.cards.size} flashcards{usage && ` · ${usage}`}
       </p>
+      {persistent === true && (
+        <p className="set-hint">
+          <Check size={13} style={{ verticalAlign: -2 }} /> Storage is persistent: the browser will not clear it on its own. Clearing this site's data still deletes it.
+        </p>
+      )}
+      {persistent === false && (
+        <div className="set-warn">
+          <AlertTriangle size={15} /> Storage is not persistent: the browser may clear it when the device runs low on space (Safari: after about a week
+          without a visit, unless the app is on your home screen). Keep Git backup on, or install the app and try again.
+        </div>
+      )}
       <div className="set-actions">
         <button className="ui-btn" onClick={exportAll}>
           <Download size={14} /> Export all pages as Markdown
         </button>
-        <button
-          className="ui-btn ghost"
-          onClick={async () => {
-            const ok = await navigator.storage?.persist?.();
-            toast({ message: ok ? 'Storage marked persistent — the browser will not evict it' : 'The browser declined persistent storage' });
-          }}
-        >
-          Keep data persistent
-        </button>
+        {persistent === false && (
+          <button
+            className="ui-btn ghost"
+            onClick={async () => {
+              const ok = await requestPersistentStorage();
+              setPersistent(ok);
+              toast({ message: ok ? 'Storage marked persistent — the browser will not evict it' : 'The browser declined persistent storage' });
+            }}
+          >
+            Keep data persistent
+          </button>
+        )}
       </div>
     </Section>
   );

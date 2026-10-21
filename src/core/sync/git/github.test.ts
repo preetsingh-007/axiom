@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GitHubRemote } from './github';
-import { ConflictError, GitRemoteError, base64ToBytes, bytesToBase64 } from './remote';
+import { ConflictError, FileTooLargeError, GitRemoteError, base64ToBytes, bytesToBase64 } from './remote';
 import { mockFetch, type MockReply } from './testFetch';
 
 const bytes = (s: string) => new TextEncoder().encode(s);
@@ -84,6 +84,17 @@ describe('GitHubRemote', () => {
     ]);
     const gh = new GitHubRemote({ token: 't', repo: 'me/vault', branch: 'main', fetch });
     await expect(gh.commit([{ path: 'f', content: bytes('x') }], 'm', 'p1')).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('maps GitHub\'s "input too large" blob rejection to FileTooLargeError', async () => {
+    const { fetch } = mockFetch([
+      ['GET', `${R}/git/commits/p1`, () => ({ json: { tree: { sha: 'pt1' } } })],
+      ['POST', `${R}/git/blobs`, () => ({ status: 422, json: { message: 'Sorry, your input was too large to process.' } })],
+    ]);
+    const gh = new GitHubRemote({ token: 't', repo: 'me/vault', branch: 'main', fetch });
+    const err = await gh.commit([{ path: 'axiom/files/big', content: bytes('x') }], 'm', 'p1').catch((e) => e);
+    expect(err).toBeInstanceOf(FileTooLargeError);
+    expect(err.path).toBe('axiom/files/big');
   });
 
   it('bootstraps an empty repository through the Contents API', async () => {

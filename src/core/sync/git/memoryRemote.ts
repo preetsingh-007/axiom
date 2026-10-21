@@ -1,4 +1,4 @@
-import { ConflictError, gitBlobSha, type GitFileChange, type GitHead, type GitRemote } from './remote';
+import { ConflictError, FileTooLargeError, gitBlobSha, type GitFileChange, type GitHead, type GitRemote } from './remote';
 
 interface MemCommit {
   sha: string;
@@ -27,6 +27,8 @@ export class MemoryGitRemote implements GitRemote {
   beforeCommit: ((remote: MemoryGitRemote) => Promise<void> | void) | undefined;
   /** make the next N commits fail with ConflictError regardless of state */
   failNextCommits = 0;
+  /** reject files larger than this with FileTooLargeError, like GitHub's request size cap */
+  maxFileBytes = Infinity;
 
   constructor(id = 'memory') {
     this.id = id;
@@ -72,6 +74,8 @@ export class MemoryGitRemote implements GitRemote {
       this.stats.conflicts++;
       throw new ConflictError();
     }
+    const big = files.find((f) => f.content && f.content.length > this.maxFileBytes);
+    if (big) throw new FileTooLargeError(big.path, 422);
     const base = parentSha ? this.trees.get(this.commits.get(parentSha)!.treeSha)! : new Map<string, string>();
     const tree = new Map(base);
     for (const f of files) {

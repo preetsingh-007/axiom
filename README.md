@@ -146,6 +146,7 @@ The e2e suite covers editing, linking, lasso extraction + Wormhole jumps, highli
 - **Mendeley** has no open API without an OAuth app, so sync is via `.bib` export/import (Zotero has full two-way Web API sync).
 - **Page metadata edited on two devices before they first sync** (e.g. renaming the same concept page offline on both) resolves last-writer-wins for that page's metadata; page *content* always merges.
 - **arXiv lookups** may be blocked by CORS in some browsers; DOI metadata (Crossref) works everywhere.
+- **Very large files don't sync through Git.** The Git APIs take each file as one upload, and GitHub turns away large uploads ("input was too large to process") well under Git's 100 MB limit. Axiom skips a file the host refuses, and any file over 50 MB, keeps syncing everything else, and Settings → Sync shows how many files were skipped. Those files stay only on the device that imported them.
 - **PPTX rendering** covers text, pictures, basic shapes, groups and notes; charts, SmartArt and EMF images are not drawn (export to PDF for full fidelity).
 
 ## License
