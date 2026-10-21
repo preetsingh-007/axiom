@@ -54,7 +54,10 @@ Every animation below was recorded from the real production build by an automate
 | **Daily Stream** | Infinite, time-stamped canvas; today on top, earlier days lazily loaded below. Every block shows when it was written. |
 | **Elastic Canvas** | Spread two fingers between paragraphs to inject whiteboard space; pinch to snap it shut. Trackpad pinch (Ctrl+wheel) and a “+” gap button do the same on laptops. |
 | **Inking** | Low-latency pointer-event ink (coalesced + predicted events, desynchronized canvas, palm rejection), pressure via `perfect-freehand`, highlighter, eraser, lasso. |
-| **Beautify** | Lasso messy ink, double-tap: shapes snap to aligned, colour-coded SVG (lines, arrows, circles, boxes, triangles, diamonds); handwriting → text and math → LaTeX via AI. Always reversible — raw ink is never deleted. |
+| **Beautify** | Lasso messy ink, double-tap: shapes snap to aligned, colour-coded SVG (lines, arrows, circles, boxes, triangles, diamonds), always reversible. Handwriting → text and math → LaTeX via AI, previewed for you to decide (below). |
+| **Handwriting to text** | Beautify, or *auto-convert* after a pause in writing, shows typed text (LaTeX for maths) in place of the handwriting. **Accept** turns it into real note blocks (the whiteboard splits around it) or, beside a drawing or on a photo, a typed label; **Keep ink** discards it. Previews are local, decisions sync, Accept is one undo step. |
+| **Focus view** | Open any whiteboard or photo full screen and zoom (pinch, trackpad, Ctrl+scroll, buttons). The pen gets finer as you zoom so large writing lands small. Only the visible part of the canvas is drawn, so deep zoom stays sharp and fast. |
+| **Photos** | `/image` (photo library, several at once), `/camera` (opens the camera), paste or drop. Large photos are downscaled to 2560 px. Drag the corner to resize (snaps to ¼ ½ ¾ 1). *Annotate* photos, lassoed figures and slides with ink and labels in the focus view; hide annotations with one tap. |
 | **Source Vault** | PDF (pdf.js, virtualised for 800-page books), EPUB, PPTX. Remembers scroll position and zoom per document across devices, extracts TOC into a side tree, persists highlights. |
 | **Slide stacking** | Landscape decks are detected and streamed vertically; *Seminar notebook* stacks every slide with whiteboard space beneath it. |
 | **Lasso & Drop** | Lasso any paragraph, equation or figure (stylus, Alt+drag or lasso tool). Two-column reading order, de-hyphenation, headings and lists are reconstructed into Markdown; equations become LaTeX (exact via vision AI when configured); figures become images. Drag the preview onto the Desk or “Send to Desk”. |
@@ -125,18 +128,20 @@ tests/e2e/              Playwright end-to-end, touch-gesture, sync and performan
 ## Testing
 
 ```bash
-npm test               # 398 unit tests (Vitest)
-npm run test:e2e       # 28 end-to-end tests (Playwright, desktop + tablet touch profiles)
+npm test               # 440 unit tests (Vitest)
+npm run test:e2e       # 38 end-to-end tests (Playwright, desktop + tablet touch profiles)
 npm run typecheck
 npm run demos          # re-record the README / guide animations (needs `npm run preview` running)
 ```
 
-The e2e suite covers editing, linking, lasso extraction + Wormhole jumps, highlights, a 300-page textbook, seminar notebooks, EPUB/PPTX, two-finger accordion gestures (real CDP touch events), FSRS reviews, two-device encrypted sync through the relay, multi-tab sync, and performance budgets (2,000-block pages, 10k-block search, textbook flinging).
+The e2e suite covers editing, linking, lasso extraction + Wormhole jumps, highlights, a 300-page textbook, seminar notebooks, EPUB/PPTX, two-finger accordion gestures (real CDP touch events), photos (import, downscaling, paste, resize, annotation), the zoomable focus view (buttons, trackpad and touch pinch), handwriting previews against a mocked AI endpoint, FSRS reviews, two-device encrypted sync through the relay, multi-tab sync, and performance budgets (2,000-block pages, 10k-block search, textbook flinging).
 
 ## Known limitations
 
 - **Native ink APIs.** Axiom is a web app, so it uses Pointer Events (coalesced + predicted points, a desynchronized canvas) rather than PencilKit / Android Ink. Latency is very good on modern iPadOS/Android browsers, but not identical to a native app.
-- **Handwriting & math recognition need a model.** Shapes are recognised offline; handwriting → text and ink → LaTeX use whichever AI provider you configure (Gemini free tier, a local Ollama model, your own key, or the copy-paste bridge). Without one, ink stays ink.
+- **Handwriting & math recognition need a model.** Shapes are recognised offline; handwriting → text and ink → LaTeX use whichever image-capable AI provider you configure (Gemini free tier, a local vision model via Ollama, your own key). Without one, ink stays ink. Unlike Apple's on-device Scribble, each conversion is a request, so auto-convert works line by line (a second or two after you pause), not letter by letter.
+- **Photos sync through Git backup.** Like source files, image files travel between devices via Git backup with source files enabled; their size, annotations and labels sync in real time.
+- **Labels are edited whole.** A typed label is one CRDT value, so if two devices edit the *same* label at the same moment, the last edit wins (note text always merges character by character).
 - **Subscription bridging is copy & paste.** Axiom opens your ChatGPT/Claude tab with the prompt on the clipboard; it never scrapes or automates those sites.
 - **Mendeley** has no open API without an OAuth app, so sync is via `.bib` export/import (Zotero has full two-way Web API sync).
 - **Page metadata edited on two devices before they first sync** (e.g. renaming the same concept page offline on both) resolves last-writer-wins for that page's metadata; page *content* always merges.

@@ -1,0 +1,152 @@
+/* Focus view: a whiteboard or photo full screen, zoomable. Tokens only (see styles/tokens.css). */
+
+.focus-view {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation: focus-in 180ms var(--ease);
+}
+
+.focus-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  padding-top: env(safe-area-inset-top, 0);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  flex: none;
+}
+
+.focus-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font: 600 14px var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.focus-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.focus-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.focus-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.focus-btn:focus-visible,
+.focus-done:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.focus-zoom-value {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-done {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.focus-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  overscroll-behavior: contain;
+  /* one finger scrolls natively; pinch is handled in script */
+  touch-action: pan-x pan-y;
+}
+
+.focus-content {
+  padding: 16px 0 120px;
+}
+
+.focus-ink {
+  margin: 0;
+  background: var(--bg-elev);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.focus-ink:hover,
+.focus-ink:focus-within {
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.focus-dock {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+
+@media (max-width: 560px) {
+  .focus-bar {
+    gap: 4px;
+    padding: 0 8px;
+  }
+  .focus-title {
+    font-size: 13px;
+  }
+}
+
+@keyframes focus-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-view {
+    animation: none;
+  }
+}

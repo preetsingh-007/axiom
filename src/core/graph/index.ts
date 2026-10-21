@@ -12,7 +12,7 @@ import { stateDigest } from '../storage/digest';
 import type { Vault } from '../vault';
 import type { BlockType, EmbedRef, PageKind } from '../schema';
 import { INDEX_DOC_ID } from '../schema';
-import { blockAnchor, blockEmbed, blockIds, blockPlainText, blocksOf, blockType } from '../blocks';
+import { blockAnchor, blockEmbed, blockIds, blockLabelList, blockPlainText, blocksOf, blockType } from '../blocks';
 import { Emitter } from '../util/emitter';
 import { hash32, normalizeTitle } from '../util/ids';
 import { parseRefs, plainText, type EmbedTarget } from './parse';
@@ -231,9 +231,20 @@ interface SnapManifest {
 
 const REFS_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['text', 'image', 'slide', 'ink', 'embed']);
 
+/** Searchable text of a block: its text plus typed labels on whiteboards and photos. */
+function blockSearchText(b: Y.Map<unknown>): string {
+  const raw = blockPlainText(b);
+  const labels = blockLabelList(b);
+  if (!labels.length) return raw;
+  const extra = labels
+    .map((l) => (l.kind === 'latex' ? `$${l.content}$` : l.content))
+    .join('\n');
+  return raw ? `${raw}\n${extra}` : extra;
+}
+
 function extractBlock(b: Y.Map<unknown>, id: string): RawBlock {
   const type = blockType(b) ?? 'text';
-  const raw = blockPlainText(b);
+  const raw = blockSearchText(b);
   const anchor = blockAnchor(b);
   const embed = blockEmbed(b);
   const createdAt = (b.get('createdAt') as number | undefined) ?? 0;
@@ -263,7 +274,7 @@ const extractMemo = new WeakMap<Y.Map<unknown>, { key: string; raw: RawBlock }>(
 function memoExtract(b: Y.Map<unknown>, id: string): RawBlock {
   const anchor = blockAnchor(b);
   const embed = blockEmbed(b);
-  const key = `${blockType(b)}\u0001${blockPlainText(b)}\u0001${anchor?.sourceId ?? ''}\u0001${embed ? embed.pageId + '#' + (embed.blockId ?? '') : ''}\u0001${b.get('createdAt') ?? ''}`;
+  const key = `${blockType(b)}\u0001${blockSearchText(b)}\u0001${anchor?.sourceId ?? ''}\u0001${embed ? embed.pageId + '#' + (embed.blockId ?? '') : ''}\u0001${b.get('createdAt') ?? ''}`;
   const hit = extractMemo.get(b);
   if (hit && hit.key === key && hit.raw.id === id) return hit.raw;
   const raw = extractBlock(b, id);

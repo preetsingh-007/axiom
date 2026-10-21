@@ -1,7 +1,7 @@
 import { blockActions } from '../blockActions';
 import type { EditorEnv, PageEditorApi } from '../editorContext';
 import { isoDate } from '../../../core/util/ids';
-import { importImageBlock } from './imageImport';
+import { importImageBlock, importImageBlocks } from './imageImport';
 
 /** Executes a slash command chosen in the editor's `/` menu. */
 export function runSlash(cmd: string, api: PageEditorApi, id: string, env: EditorEnv) {
@@ -19,7 +19,14 @@ export function runSlash(cmd: string, api: PageEditorApi, id: string, env: Edito
     case 'text':
       break;
     case 'image':
-      void env.pickImage().then(async (file) => {
+      if (env.pickImages) void env.pickImages().then((files) => importImageBlocks(api, id, files));
+      else
+        void env.pickImage().then(async (file) => {
+          if (file) await importImageBlock(api, id, file);
+        });
+      break;
+    case 'camera':
+      void env.pickImage({ camera: true }).then(async (file) => {
         if (file) await importImageBlock(api, id, file);
       });
       break;

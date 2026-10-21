@@ -208,7 +208,9 @@
       <li><a href="#desk">Writing on the Desk</a></li>
       <li><a href="#library">The Library</a></li>
       <li><a href="#lasso">Lasso &amp; Drop</a></li>
+      <li><a href="#photos">Photos</a></li>
       <li><a href="#whiteboard">Whiteboard &amp; Beautify</a></li>
+      <li><a href="#handwriting">Handwriting to text</a></li>
       <li><a href="#flashcards">Flashcards</a></li>
       <li><a href="#graph">Graph, search &amp; Lenses</a></li>
       <li><a href="#sync">Sync &amp; backup</a></li>
@@ -285,12 +287,12 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
           <tr><td><code>#tag</code> or <code>#[[two words]]</code></td><td>A tag, which is also a concept page</td></tr>
           <tr><td><code>![[Page]]</code></td><td>The whole page shown inline, live and editable</td></tr>
           <tr><td><code>{{c1::answer}}</code></td><td>An explicit cloze deletion for flashcards</td></tr>
-          <tr><td><code>/</code> at the start of a block</td><td>Commands: math, whiteboard, code, image, embed, flashcard, today's date</td></tr>
+          <tr><td><code>/</code> at the start of a block</td><td>Commands: math, whiteboard, code, image, take photo, embed, flashcard, today's date</td></tr>
           <tr><td>Markdown</td><td>Headings, lists, <strong>bold</strong>, <em>italics</em>, quotes, tables, links</td></tr>
         </tbody>
       </table></div>
       <h3>Moving blocks around</h3>
-      <p>Hover a block and use the handle on its left to drag it, or click the handle for a menu: turn into text, equation or code; copy as Markdown or LaTeX; make a flashcard; duplicate; delete. Deleting shows an <em>Undo</em> button, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> outside the editor undoes block changes too.</p>
+      <p>Hover a block and use the handle on its left to drag it, or click the handle for a menu: turn into text, equation or code; add a whiteboard or a photo below; copy as Markdown or LaTeX; make a flashcard; duplicate; delete. Deleting shows an <em>Undo</em> button, and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> outside the editor undoes block changes too.</p>
       <h3>The Side-Quest panel</h3>
       <p>Press <kbd>Ctrl</kbd>+<kbd>.</kbd> to open a scratchpad on the right. Look up a concept there without leaving what you were reading. <kbd>Shift</kbd>-click any link to open it in that panel.</p>
       <h3>Export</h3>
@@ -335,6 +337,18 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
       </div>
     </section>
 
+    <section id="photos">
+      <h2>Photos</h2>
+      <h3>Add a photo</h3>
+      <p>Type <code>/image</code> to pick one or more pictures from your photo library or files, or <code>/camera</code> (<em>Take photo</em>) to open the camera on a phone or tablet. The block menu has <em>Add photo below</em> and <em>Take photo below</em> too. You can also paste a screenshot into a block (it lands right after it) or drop image files onto the page.</p>
+      <p>Large photos are shrunk to 2560 pixels on their long edge as they are added, so a 12-megapixel camera photo takes a few hundred kilobytes instead of several megabytes. Small images, GIFs and SVGs are kept exactly as they are.</p>
+      <h3>Resize</h3>
+      <p>Hover a photo (on a tablet the handle is always shown) and drag the small square in its bottom-right corner. It snaps to a quarter, a half, three quarters and the full width of the page. Double-click or double-tap the handle to go back to the original size, or focus it and use the arrow keys. The size is stored as a share of the page width, so it looks the same on every screen.</p>
+      <h3>Annotate</h3>
+      <p>Press <em>Annotate</em> on a photo, a figure you lassoed from a PDF, or a slide in a seminar notebook. It opens full screen in the <a href="#focus">focus view</a>, where you can zoom in and draw, highlight, erase, lasso and Beautify on top of the picture. Your annotations are drawn over the photo in the note. The eye button hides or shows them, and the picture itself is never changed.</p>
+      <div class="note">Photos travel between your devices through Git backup with <em>Also back up source files</em> turned on. Annotations, sizes and text sync like the rest of your notes.</div>
+    </section>
+
     <section id="whiteboard">
       <h2>Whiteboard &amp; Beautify</h2>
       <div class="split">
@@ -344,7 +358,9 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
           <h3>Draw</h3>
           <p>Pick a tool from the floating toolbar or press <kbd>P</kbd> pen, <kbd>H</kbd> highlighter, <kbd>E</kbd> eraser, <kbd>L</kbd> lasso, <kbd>V</kbd> pointer. With a stylus, Axiom switches to the pen automatically and ignores your palm.</p>
           <h3>Beautify</h3>
-          <p>Lasso messy ink and double-tap inside the selection. Circles, boxes, lines and arrows snap into clean, aligned shapes. Handwriting turns into text, and written maths into LaTeX, when an AI provider is set up. Tap the result to switch back to your original ink at any time.</p>
+          <p>Lasso messy ink and double-tap inside the selection. Circles, boxes, lines and arrows snap into clean, aligned shapes; tap a shape to switch back to your original ink at any time. Handwriting in the selection is read as text or LaTeX when an AI provider is set up, and you decide what happens to it: see <a href="#handwriting">Handwriting to text</a>.</p>
+          <h3 id="focus">Focus view and zoom</h3>
+          <p>Hover a whiteboard and press the expand button in its top-right corner to open it full screen. Pinch with two fingers to zoom and pan, or use trackpad pinch, <kbd>Ctrl</kbd>+scroll, the <em>−</em>/<em>+</em> buttons or <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd>. The further you zoom in, the finer the pen, so you can write at a comfortable size and it lands small and neat. Writing near the bottom adds space automatically, or press the arrow button for more. Press <em>Done</em> or <kbd>Esc</kbd> to go back. Everything you draw is already in the note. Gestures in the note itself are unchanged: zoom only happens in the focus view.</p>
         </div>
         <figure class="demo">
           <div class="frame">
@@ -356,6 +372,24 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
           </div>
         </figure>
       </div>
+    </section>
+
+    <section id="handwriting">
+      <h2>Handwriting to text</h2>
+      <p>Handwriting can become typed text, with LaTeX for maths. You decide once for each piece of writing, so a note never holds both the ink and a copy of it.</p>
+      <h3>Convert</h3>
+      <p>Either lasso the writing and Beautify it, or turn on <em>auto-convert</em> with the last button of the ink toolbar. With auto-convert on, pause for a moment after writing a line and the typed version appears on its own. Writing that continues a line is read together with it.</p>
+      <h3>Decide</h3>
+      <p>The typed text is shown as a preview in place of your writing, with three buttons:</p>
+      <ul>
+        <li><strong>Accept</strong> replaces the handwriting with the text. Writing on its own line becomes a real text or equation block in the note at that spot. The whiteboard is split around it, and ink below moves into a new whiteboard after the text. If the whiteboard held nothing but that writing, it becomes the text block itself. The text can then be edited, searched and linked, and <code>#flashcard</code> works. Writing next to a drawing, or on a photo, becomes a typed label on the canvas, so the diagram keeps its layout.</li>
+        <li><strong>Edit</strong> (the pencil) lets you fix a word, or switch between text and maths, before accepting.</li>
+        <li><strong>Keep ink</strong> discards the conversion and leaves your handwriting as it was. Auto-convert won't offer it again.</li>
+      </ul>
+      <p>With several previews, <em>Accept all</em> and <em>Keep all ink</em> appear at the top. Previews are never saved or synced; only your decision is. <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd> undoes an Accept and brings the ink back.</p>
+      <h3>Labels</h3>
+      <p>Tap a label with the pointer or lasso tool to edit or delete it. Lasso labels together with ink to move, resize or delete them. Labels are searchable, and <code>[[links]]</code> and <code>#tags</code> in them work like anywhere else.</p>
+      <div class="note">Reading handwriting needs an AI provider that accepts images: a free Gemini key, your Anthropic key, or an OpenAI-compatible endpoint with a vision model. Each conversion is one request, so expect a second or two per line. Whiteboards beautified before this version keep their old typed overlay and toggle.</div>
     </section>
 
     <section id="flashcards">
@@ -482,6 +516,8 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
           <tr><td>Editing</td><td><kbd>Esc</kbd></td><td>Stop editing</td></tr>
           <tr><td>Desk</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Undo or redo block changes</td></tr>
           <tr><td>Ink</td><td><kbd>P</kbd> <kbd>H</kbd> <kbd>E</kbd> <kbd>L</kbd> <kbd>V</kbd></td><td>Pen, highlighter, eraser, lasso, pointer</td></tr>
+          <tr><td>Focus view</td><td><kbd>Ctrl</kbd>+<kbd>=</kbd> · <kbd>Ctrl</kbd>+<kbd>-</kbd> · <kbd>Ctrl</kbd>+<kbd>0</kbd> · <kbd>Esc</kbd></td><td>Zoom in · zoom out · fit width · close</td></tr>
+          <tr><td>Photo</td><td><kbd>←</kbd> <kbd>→</kbd> on the resize handle</td><td>Narrower or wider by 5%</td></tr>
           <tr><td>Reader</td><td><kbd>Alt</kbd>+drag · <kbd>Ctrl</kbd>+scroll</td><td>Lasso · zoom</td></tr>
           <tr><td>Review</td><td><kbd>Space</kbd> · <kbd>1</kbd>–<kbd>4</kbd> · <kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Show answer · rate · undo the last rating</td></tr>
         </tbody>
@@ -500,8 +536,8 @@ node server/relay.mjs --port 8787 --quiet   <span class="c"># same, with options
     <section id="testing">
       <h2>How it is tested</h2>
       <p>Every recording on this page was made from the real app by an automated browser script (<code>npm run demos</code>), so what you see is what the build does.</p>
-      <div class="code"><pre>npm test            <span class="c"># 398 unit tests (Vitest)</span>
-npm run test:e2e    <span class="c"># 28 end-to-end tests (Playwright, desktop + tablet)</span>
+      <div class="code"><pre>npm test            <span class="c"># 440 unit tests (Vitest)</span>
+npm run test:e2e    <span class="c"># 38 end-to-end tests (Playwright, desktop + tablet)</span>
 npm run typecheck</pre></div>
       <p>The end-to-end suite drives a real Chromium through the production build:</p>
       <ul>
@@ -510,6 +546,9 @@ npm run typecheck</pre></div>
         <li><span class="pill">Lasso</span> extracting a paragraph and jumping back through its anchor</li>
         <li><span class="pill">Touch</span> two-finger spread and pinch with real touch events, plus trackpad pinch</li>
         <li><span class="pill">Ink</span> drawing, erasing, and Beautify turning a rough circle into a shape</li>
+        <li><span class="pill">Photos</span> adding, downscaling, pasting, resizing and annotating photos</li>
+        <li><span class="pill">Focus</span> zooming with buttons, trackpad pinch and two-finger touch pinch; finer strokes when zoomed in</li>
+        <li><span class="pill">Handwriting</span> previews, Accept into a note block and Keep ink, against a mocked AI endpoint</li>
         <li><span class="pill">Sync</span> two isolated browsers syncing through the encrypted relay; two tabs syncing with no server</li>
         <li><span class="pill">Speed</span> a 2,000-block page paints in under 1.5 s with no typing lag; search over 10,000 blocks returns in about 1 ms</li>
       </ul>
@@ -521,8 +560,10 @@ npm run typecheck</pre></div>
       <p>Sync carries notes, but files travel only through Git backup with <em>Also back up source files</em> turned on, or when you import the file on that device too.</p>
       <h3>Settings says a device with a different sync key is in the room</h3>
       <p>Two devices are using different keys. Copy the join code from one device and paste it on the other.</p>
-      <h3>Handwriting stays as ink after Beautify</h3>
+      <h3>Handwriting stays as ink after Beautify or auto-convert</h3>
       <p>Shapes work offline, but reading handwriting needs an AI provider. Add one under <em>Settings → AI</em>.</p>
+      <h3>A photo shows as an empty grey box on another device</h3>
+      <p>Like source files, photos travel between devices through Git backup with <em>Also back up source files</em> turned on. Their size, annotations and captions sync right away; the picture follows with the next backup.</p>
       <h3>A <code>.ppt</code> file won't import</h3>
       <p>The old binary PowerPoint format isn't supported. Save the deck as <code>.pptx</code> or PDF and import that.</p>
       <h3>Storage is full</h3>

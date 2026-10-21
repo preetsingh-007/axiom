@@ -29,10 +29,11 @@ export function EditorEnvProvider({ children }: { children: ReactNode }) {
           if (b.blockId === blockId) return useUI.getState().navigate({ name: 'page', pageId: b.pageId, blockId });
         }
       },
-      async pickImage() {
-        const [f] = await pickFile('image/*');
+      async pickImage(opts) {
+        const [f] = await pickFile('image/*', false, opts?.camera ? 'environment' : undefined);
         return f ?? null;
       },
+      pickImages: () => pickFile('image/*', true),
     }),
     [services],
   );

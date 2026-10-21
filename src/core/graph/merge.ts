@@ -9,7 +9,7 @@
 import type * as Y from 'yjs';
 import type { Vault } from '../vault';
 import { LOCAL_ORIGIN } from '../storage/docstore';
-import { blockIds, blocksOf, blockText, insertBlocks, snapshotPage, type NewBlock } from '../blocks';
+import { blockIds, blocksOf, blockText, insertBlocks, snapshotPage, snapshotToNewBlock, type NewBlock } from '../blocks';
 import { normalizeTitle } from '../util/ids';
 import type { GraphIndex } from './index';
 import { conceptEdits, findMentions, type TextEdit } from './parse';
@@ -143,17 +143,7 @@ export async function mergeConcepts(vault: Vault, index: GraphIndex, from: strin
       if (hasContent(src.doc)) {
         const specs: NewBlock[] = snapshotPage(src.doc)
           .filter((b) => b.type !== 'text' || b.text.trim() !== '')
-          .map((b) => ({
-            id: b.id,
-            type: b.type,
-            text: b.text,
-            height: b.height,
-            strokes: b.strokes,
-            image: b.image,
-            anchor: b.anchor,
-            embed: b.embed,
-            lang: b.lang,
-          }));
+          .map((b) => snapshotToNewBlock(b, { keepId: true }));
         const dst = await vault.openPage(targetId);
         try {
           const existing = new Set(blockIds(dst.doc));

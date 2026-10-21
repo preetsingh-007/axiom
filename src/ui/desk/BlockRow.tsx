@@ -1,8 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
-import { GripVertical, Anchor as AnchorIcon, Type, Sigma, Code2, PenLine, Copy, FileCode2, Trash2, Layers, CopyPlus, BookOpen } from 'lucide-react';
-import { blockAnchor, blockType, getBlock, snapshotBlock, insertBlockAfter, blockPlainText } from '../../core/blocks';
+import { GripVertical, Anchor as AnchorIcon, Type, Sigma, Code2, PenLine, Copy, FileCode2, Trash2, Layers, CopyPlus, BookOpen, ImagePlus, Camera, Eye, EyeOff, Scaling, Maximize2 } from 'lucide-react';
+import { blockAnchor, blockDisplayWidth, blockImage, blockType, getBlock, snapshotBlock, snapshotToNewBlock, insertBlockAfter, blockPlainText } from '../../core/blocks';
+import { hasAnnotations, setImageWidth, toggleAnnotations } from './blocks/ImageBlocks';
+import { openFocus } from '../ink/focusStore';
 import type { BlockType } from '../../core/schema';
-import { usePageEditor } from './editorContext';
+import { useEditorEnv, usePageEditor } from './editorContext';
+import { importImageBlocks } from './blocks/imageImport';
 import { useYSelect } from '../hooks/useY';
 import { TextBlock } from './blocks/TextBlock';
 import { MathBlock, CodeBlock, ImageBlock, SlideBlock, EmbedBlock } from './blocks/OtherBlocks';
@@ -22,6 +25,7 @@ function formatTime(ts: number) {
  */
 export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, showTime }: { id: string; index: number; compact?: boolean; readOnly?: boolean; showTime?: boolean }) {
   const api = usePageEditor()!;
+  const env = useEditorEnv();
   const doc = api.doc;
   const block = getBlock(doc, id);
   const type = useYSelect(block, (b) => blockType(b)) as BlockType | undefined;
@@ -64,8 +68,33 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
       turn('code', 'Turn into code', <Code2 size={15} />);
       items.push({ separator: true, label: '' });
     }
+    if (type === 'image') {
+      const img = blockImage(block);
+      if (img && img.w > 0 && img.h > 0) {
+        items.push({ label: 'Annotate', icon: <PenLine size={15} />, run: () => openFocus({ block, kind: 'photo', image: { blobId: img.blobId, w: img.w, h: img.h }, title: img.alt || 'Annotate photo' }) });
+      }
+      if (hasAnnotations(block)) {
+        const hidden = block.get('annotationsHidden') === true;
+        items.push({ label: hidden ? 'Show annotations' : 'Hide annotations', icon: hidden ? <Eye size={15} /> : <EyeOff size={15} />, run: () => toggleAnnotations(block) });
+      }
+      if (blockDisplayWidth(block) !== undefined) items.push({ label: 'Original size', icon: <Scaling size={15} />, run: () => setImageWidth(block, null) });
+      items.push({ separator: true, label: '' });
+    }
     items.push(
       { label: 'Add whiteboard below', icon: <PenLine size={15} />, run: () => actions.insertAfter({ type: 'ink', height: 360 }, false) },
+      {
+        label: 'Add photo below',
+        icon: <ImagePlus size={15} />,
+        run: () => {
+          const pick = env.pickImages ? env.pickImages() : env.pickImage().then((f) => (f ? [f] : []));
+          void pick.then((files) => importImageBlocks(api, id, files));
+        },
+      },
+      {
+        label: 'Take photo below',
+        icon: <Camera size={15} />,
+        run: () => void env.pickImage({ camera: true }).then((f) => f && importImageBlocks(api, id, [f])),
+      },
       { label: 'Copy as Markdown', icon: <Copy size={15} />, run: () => copyText(exportBlock(snap, 'md')).then(() => toast({ message: 'Copied Markdown' })) },
       { label: 'Copy as LaTeX', icon: <FileCode2 size={15} />, run: () => copyText(exportBlock(snap, 'tex')).then(() => toast({ message: 'Copied LaTeX' })) },
     );
@@ -86,16 +115,7 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
     items.push({
       label: 'Duplicate',
       icon: <CopyPlus size={15} />,
-      run: () =>
-        insertBlockAfter(doc, id, {
-          type: snap.type,
-          text: snap.text,
-          height: snap.height,
-          strokes: snap.strokes,
-          image: snap.image,
-          anchor: snap.anchor,
-          embed: snap.embed,
-        }),
+      run: () => insertBlockAfter(doc, id, snapshotToNewBlock(snap)),
     });
     if (anchor) items.push({ label: 'Open source', icon: <BookOpen size={15} />, run: () => openReader(anchor.sourceId, { loc: anchor.loc, flash: true }) });
     items.push({ separator: true, label: '' }, { label: 'Delete', icon: <Trash2 size={15} />, danger: true, hint: '', run: () => actions.remove() });
@@ -114,10 +134,10 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
       content = <CodeBlock block={block} id={id} readOnly={readOnly} />;
       break;
     case 'image':
-      content = <ImageBlock block={block} />;
+      content = <ImageBlock block={block} readOnly={readOnly} />;
       break;
     case 'slide':
-      content = <SlideBlock block={block} />;
+      content = <SlideBlock block={block} readOnly={readOnly} />;
       break;
     case 'embed':
       content = <EmbedBlock block={block} />;
@@ -159,6 +179,11 @@ export const BlockRow = memo(function BlockRow({ id, index, compact, readOnly, s
       ) : null}
       <div className="blk-body">{content}</div>
       <div className="blk-aside">
+        {type === 'ink' && !readOnly && (
+          <button className="blk-expand" title="Focus view: open full screen and zoom in to write" aria-label="Open in focus view (zoom)" onClick={() => openFocus({ block, kind: 'whiteboard' })}>
+            <Maximize2 size={14} />
+          </button>
+        )}
         {anchor && (
           <button
             className="blk-anchor"

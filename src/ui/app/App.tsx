@@ -13,6 +13,7 @@ import { EditorEnvProvider } from './EditorEnvProvider';
 import { AIBridgeDialog } from '../review/AIBridgeDialog';
 import { useInkShortcuts, InkToolbar } from '../ink/InkToolbar';
 import { preloadEditor } from '../desk/LazyBlockEditor';
+import { FocusViewHost } from '../ink/FocusView';
 
 const LibraryView = lazy(() => import('../library/LibraryView').then((m) => ({ default: m.LibraryView })));
 const ReaderPane = lazy(() => import('../library/ReaderPane').then((m) => ({ default: m.ReaderPane })));
@@ -147,6 +148,7 @@ export function App() {
         <Toasts />
         <GlobalDrop />
         <AIBridgeDialog />
+        <FocusViewHost />
       </div>
     </EditorEnvProvider>
   );

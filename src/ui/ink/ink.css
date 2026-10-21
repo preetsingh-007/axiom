@@ -246,6 +246,153 @@
   text-align: center;
 }
 
+/* ---- typed labels (accepted handwriting beside a drawing) */
+
+.ink-label {
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-ui);
+}
+
+.ink-label-latex {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ink-label .katex {
+  font-size: 1.05em;
+}
+
+.ink-label[data-ink-selected] {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- conversion previews: typed text shown in place of the writing until decided */
+
+.ink-preview {
+  color: var(--text);
+  line-height: 1.2;
+  font-family: var(--font-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 1px 3px;
+  margin: -2px -4px;
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg-elev));
+  animation: ink-fade-in 200ms var(--ease);
+}
+
+.ink-preview-latex {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ink-preview-bar,
+.ink-preview-all {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  animation: ink-fade-in 160ms var(--ease);
+}
+
+.ink-preview-all {
+  top: 8px;
+  right: 8px;
+}
+
+.ink-preview-count {
+  padding: 0 8px 0 6px;
+  color: var(--text-muted);
+  font: 12px var(--font-ui);
+}
+
+/* ---- label / preview editor */
+
+.ink-editor {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.ink-editor-input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 var(--font-ui);
+}
+
+.ink-editor-input:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.ink-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ink-editor-kind {
+  display: flex;
+  gap: 2px;
+  margin-right: auto;
+}
+
+.ink-editor-kind [aria-checked='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---- photos: ink over a picture */
+
+.ink-photo {
+  margin: 0;
+  /* photos don't change with the theme, so neither does the default ink */
+  --ink-default: #1d2230;
+}
+
+.ink-photo .ink-surface {
+  background: none;
+}
+
+.ink-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 /* ---- toolbar */
 
 .ink-toolbar {
@@ -389,6 +536,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ink-shimmer,
   .ink-overlay,
+  .ink-preview,
+  .ink-preview-bar,
+  .ink-preview-all,
   .ink-toggle {
     animation: none;
   }

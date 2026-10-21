@@ -58,4 +58,19 @@ describe('latex export', () => {
     expect(doc).toContain('\\begin{equation}\na+b\n\\end{equation}');
     expect(doc.trim().endsWith('\\end{document}')).toBe(true);
   });
+
+  it('exports typed labels of whiteboards and photos', () => {
+    const labels = [
+      { id: 'a', x: 0, y: 0, w: 10, h: 10, kind: 'text' as const, content: 'see [[Bellman]]', size: 12, createdAt: 0 },
+      { id: 'b', x: 0, y: 20, w: 10, h: 10, kind: 'latex' as const, content: 'x^2', size: 12, createdAt: 0 },
+    ];
+    const ink: BlockSnapshot = { id: 'i', type: 'ink', text: '', strokes: [], height: 100, labels };
+    expect(blockToMarkdown(ink)).toBe('see Bellman\n\n$$\nx^2\n$$');
+    expect(blockToLatex(ink)).toBe('see Bellman\n\n\\[\nx^2\n\\]');
+    const img: BlockSnapshot = { id: 'p', type: 'image', text: '', image: { blobId: 'z', w: 1, h: 1, alt: 'pic' }, labels };
+    expect(blockToMarkdown(img)).toBe('![pic](figure.png)\n\nsee Bellman\n\n$$\nx^2\n$$');
+    expect(blockToLatex(img)).toContain('\\end{figure}\n\nsee Bellman');
+    // without labels nothing changes
+    expect(blockToLatex({ id: 'i', type: 'ink', text: '', strokes: [] })).toBe('% (hand-drawn figure — export as SVG)');
+  });
 });

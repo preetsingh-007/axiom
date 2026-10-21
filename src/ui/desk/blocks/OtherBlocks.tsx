@@ -1,14 +1,13 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState } from 'react';
 import type * as Y from 'yjs';
-import { blockEmbed, blockImage, blockText, blockAnchor, type BlockMap } from '../../../core/blocks';
+import { blockEmbed, blockText, type BlockMap } from '../../../core/blocks';
 import { renderMath, escapeHtml } from '../../markdown/render';
 import { BlockEditor } from '../LazyBlockEditor';
 import { startTypeahead, useEditorEnv, useFocusRequest, usePageEditor, type FocusAt } from '../editorContext';
 import { blockActions } from '../blockActions';
-import { useBlobUrl, useYText } from '../../hooks/usePage';
+import { useYText } from '../../hooks/usePage';
 import { useYSelect } from '../../hooks/useY';
 import { Transclusion } from './Transclusion';
-import { renderSourcePage } from '../../library/pdfCache';
 
 function useEditing(id: string, readOnly?: boolean) {
   const api = usePageEditor();
@@ -91,50 +90,7 @@ export const CodeBlock = memo(function CodeBlock({ block, id, readOnly }: { bloc
   );
 });
 
-export const ImageBlock = memo(function ImageBlock({ block }: { block: BlockMap }) {
-  const image = useYSelect(block, (b) => blockImage(b));
-  const url = useBlobUrl(image?.blobId);
-  const caption = useYText(blockText(block));
-  if (!image) return null;
-  const ratio = image.w && image.h ? `${image.w} / ${image.h}` : undefined;
-  return (
-    <figure className="blk-image-fig">
-      {url ? (
-        <img src={url} alt={image.alt ?? caption ?? ''} style={{ aspectRatio: ratio, maxWidth: image.w ? Math.min(image.w, 1400) : undefined }} draggable={false} loading="lazy" decoding="async" />
-      ) : (
-        <div className="blk-image-ph" style={{ aspectRatio: ratio ?? '4 / 3' }} />
-      )}
-      {caption && <figcaption>{caption}</figcaption>}
-    </figure>
-  );
-});
-
-/** A slide/page of a source, rendered on demand from the original file (no duplicate storage). */
-export const SlideBlock = memo(function SlideBlock({ block }: { block: BlockMap }) {
-  const anchor = useYSelect(block, (b) => blockAnchor(b));
-  const image = useYSelect(block, (b) => blockImage(b));
-  const stored = useBlobUrl(image?.blobId);
-  const [url, setUrl] = useState<string>();
-  const [ratio, setRatio] = useState<string>('16 / 9');
-  useEffect(() => {
-    if (image || !anchor?.loc.page) return;
-    let alive = true;
-    renderSourcePage(anchor.sourceId, anchor.loc.page, 1400).then((r) => {
-      if (!alive || !r) return;
-      setUrl(r.url);
-      setRatio(`${r.width} / ${r.height}`);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [anchor?.sourceId, anchor?.loc.page, image]);
-  const src = stored ?? url;
-  return (
-    <figure className="blk-slide-fig">
-      {src ? <img src={src} alt={`Slide ${anchor?.loc.page ?? ''}`} draggable={false} /> : <div className="blk-image-ph" style={{ aspectRatio: ratio }} />}
-    </figure>
-  );
-});
+export { ImageBlock, SlideBlock } from './ImageBlocks';
 
 export const EmbedBlock = memo(function EmbedBlock({ block }: { block: BlockMap }) {
   const embed = useYSelect(block, (b) => blockEmbed(b));

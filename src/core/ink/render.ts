@@ -4,7 +4,7 @@
  * `scale * dpr` as a transform so cached paths stay valid across resizes.
  */
 import { getStroke, type StrokeOptions } from 'perfect-freehand';
-import type { Beautified, BeautifiedItem, Stroke } from '../schema';
+import type { Beautified, BeautifiedItem, InkLabel, Stroke } from '../schema';
 import { INK_LOGICAL_WIDTH } from '../schema';
 import { bboxIntersects, strokeBBox, strokesBBox, unionBBox, type BBox } from './geometry';
 import { escapeXml, safeColor, sanitizeSvgFragment } from './svgsafe';
@@ -265,6 +265,8 @@ export interface InkSvgOptions {
   /** output width attribute in px (defaults to the viewBox width) */
   pixelWidth?: number;
   fontFamily?: string;
+  /** typed labels to draw */
+  labels?: readonly InkLabel[];
 }
 
 /**
@@ -278,12 +280,17 @@ export function inkToSvg(strokes: readonly Stroke[], beautified: Beautified | un
   const hidden = coveredStrokeIds(beautified);
   const visible = strokes.filter((s) => !hidden.has(s.id) && s.pts.length >= 3);
   const items = beautified?.active ? beautified.items : [];
+  const labels = opts.labels ?? [];
 
   let vb: BBox = { x: 0, y: 0, w: width, h: height };
   if (opts.crop) {
     let box: BBox | null = visible.length ? strokesBBox(visible) : null;
     for (const it of items) {
       const b = itemBBox(it);
+      box = box ? unionBBox(box, b) : b;
+    }
+    for (const l of labels) {
+      const b = { x: l.x, y: l.y, w: l.w, h: l.h };
       box = box ? unionBBox(box, b) : b;
     }
     if (box) {
@@ -315,6 +322,13 @@ export function inkToSvg(strokes: readonly Stroke[], beautified: Beautified | un
         .join('');
       parts.push(`<text font-family="${escapeXml(family)}" font-size="${r1(fontSize)}" fill="${ink}">${tspans}</text>`);
     }
+  }
+  for (const l of labels) {
+    const family = l.kind === 'latex' ? "'Latin Modern Math', 'STIX Two Math', 'Cambria Math', serif" : font;
+    const color = !l.color || l.color === CURRENT_INK ? ink : safeColor(l.color, ink);
+    const lines = l.kind === 'latex' ? [`$${l.content}$`] : l.content.split('\n');
+    const tspans = lines.map((ln, i) => `<tspan x="${r1(l.x)}" y="${r1(l.y + l.size * (i + 0.95) * 1.2)}">${escapeXml(ln)}</tspan>`).join('');
+    parts.push(`<text font-family="${escapeXml(family)}" font-size="${r1(l.size)}" fill="${color}">${tspans}</text>`);
   }
   parts.push('</svg>');
   return parts.join('');

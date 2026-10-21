@@ -1,14 +1,14 @@
 import { Fragment, memo, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import type * as Y from 'yjs';
 import { Plus } from 'lucide-react';
-import { blockIds, blockPlainText, blockType, getBlock, insertBlock, insertBlocks, moveBlock, type NewBlock, type BlockSnapshot } from '../../core/blocks';
+import { blockIds, blockPlainText, blockType, getBlock, insertBlock, insertBlocks, moveBlock, snapshotToNewBlock, type NewBlock, type BlockSnapshot } from '../../core/blocks';
 import { useBlockIds } from '../hooks/usePage';
 import { PageEditorApi, PageEditorContext } from './editorContext';
 import { BlockRow } from './BlockRow';
 import { useAccordion, insertSpaceAt } from './accordion';
 import { BLOCK_MIME, EXTRACT_MIME } from './dragout';
 import { isTextual } from './blockActions';
-import { blobToImageRef } from './blocks/imageImport';
+import { altFromName, photoToImageRef } from './blocks/imageImport';
 import { useUI } from '../app/store';
 import { LOCAL_ORIGIN } from '../../core/storage/docstore';
 import { importFilesToLibrary } from '../library/importer';
@@ -35,7 +35,7 @@ const LazyBlockRow = memo(function LazyBlockRow({ id, index, readOnly, showTime,
 });
 
 function snapshotToNew(b: BlockSnapshot): NewBlock {
-  return { type: b.type, text: b.text, height: b.height, strokes: b.strokes, image: b.image, anchor: b.anchor, embed: b.embed, lang: b.lang };
+  return snapshotToNewBlock(b);
 }
 
 /** Parses an extraction payload dropped from the Library. */
@@ -123,7 +123,7 @@ export const BlockList = memo(function BlockList({ doc, pageId, readOnly, showTi
       const images = files.filter((f) => f.type.startsWith('image/'));
       const docs = files.filter((f) => !f.type.startsWith('image/'));
       const specs: NewBlock[] = [];
-      for (const f of images) specs.push({ type: 'image', image: await blobToImageRef(f, f.name) });
+      for (const f of images) specs.push({ type: 'image', image: await photoToImageRef(f, altFromName(f.name)) });
       if (specs.length) insertBlocks(doc, specs, idx);
       if (docs.length) {
         const n = await importFilesToLibrary(docs);
